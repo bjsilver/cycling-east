@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+ <metadata>
+  <time>2020-03-17T11:26:40Z</time>
+ </metadata>
+ <trk>
+  <name>Lunch Hike</name>
+  <type>hiking</type>
+  <trkseg>
+   <trkpt lat="51.6213220" lon="-0.1030230">
+    <ele>35.7</ele>
+    <time>2020-03-17T11:26:40Z</time>
+   </trkpt>
+   <trkpt lat="51.6213190" lon="-0.1030310">
+    <ele>35.7</ele>
+    <time>2020-03-17T11:26:47Z</time>
+   </trkpt>
+  </trkseg>
+ </trk>
+</gpx>

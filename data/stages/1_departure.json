@@ -1,0 +1,10 @@
+{
+    "title": "Departure",
+    "description": "Leaving Leeds and cycling down to London, then down to Dover to take the ferry across to Dunkirk",
+    "start_index": 0,
+    "end_index": 5,
+    "images": [
+        "https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=1000",
+        "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?w=1000"
+    ]
+}

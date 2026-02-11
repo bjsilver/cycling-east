@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+ <metadata>
+  <time>2017-02-28T09:48:17Z</time>
+ </metadata>
+ <trk>
+  <name>Morning Run</name>
+  <type>running</type>
+  <trkseg>
+   <trkpt lat="50.6389490" lon="-3.7897390">
+    <ele>233.4</ele>
+    <time>2017-02-28T09:48:17Z</time>
+   </trkpt>
+   <trkpt lat="50.6389180" lon="-3.7897430">
+    <ele>233.5</ele>
+    <time>2017-02-28T09:48:25Z</time>
+   </trkpt>
+   <trkpt lat="50.6388990" lon="-3.7897830">
+    <ele>233.9</ele>
+    <time>2017-02-28T09:48:27Z</time>
+   </trkpt>
+   <trkpt lat="50.6388870" lon="-3.7898230">
+    <ele>234.3</ele>
+    <time>2017-02-28T09:48:29Z</time>
+   </trkpt>
+   <trkpt lat="50.6388500" lon="-3.7898570">
+    <ele>234.8</ele>
+    <time>2017-02-28T09:48:31Z</time>
+   </trkpt>
+   <trkpt lat="50.6388740" lon="-3.7899080">
+    <ele>235.3</ele>
+    <time>2017-02-28T09:48:34Z</time>
+   </trkpt>
+   <trkpt lat="50.6388450" lon="-3.7899380">
+    <ele>235.8</ele>
+    <time>2017-02-28T09:48:37Z</time>
+   </trkpt>
+   <trkpt lat="50.6388210" lon="-3.7899880">
+    <ele>236.2</ele>
+    <time>2017-02-28T09:48:40Z</time>
+   </trkpt>
+   <trkpt lat="50.6388210" lon="-3.7900500">
+    <ele>236.7</ele>
+    <time>2017-02-28T09:48:43Z</time>
+   </trkpt>
+   <trkpt lat="50.6388230" lon="-3.7901070">
+    <ele>237.1</ele>
+    <time>2017-02-28T09:48:46Z</time>
+   </trkpt>
+   <trkpt lat="50.6388120" lon="-3.7901570">
+    <ele>237.5</ele>
+    <time>2017-02-28T09:48:50Z</time>
+   </trkpt>
+   <trkpt lat="50.6388040" lon="-3.7901980">
+    <ele>238.1</ele>
+    <time>2017-02-28T09:48:55Z</time>
+   </trkpt>
+   <trkpt lat="50.6388210" lon="-3.7902450">
+    <ele>238.4</ele>
+    <time>2017-02-28T09:48:59Z</time>
+   </trkpt>
+   <trkpt lat="50.6388500" lon="-3.7902720">
+    <ele>238.7</ele>
+    <time>2017-02-28T09:49:02Z</time>
+   </trkpt>
+   <trkpt lat="50.6388810" lon="-3.7902930">
+    <ele>238.9</ele>
+    <time>2017-02-28T09:49:11Z</time>
+   </trkpt>
+   <trkpt lat="50.6388840" lon="-3.7903360">
+    <ele>239.2</ele>
+    <time>2017-02-28T09:49:20Z</time>
+   </trkpt>
+   <trkpt lat="50.6389110" lon="-3.7903640">
+    <ele>239.4</ele>
+    <time>2017-02-28T09:49:27Z</time>
+   </trkpt>
+   <trkpt lat="50.6389190" lon="-3.7904080">
+    <ele>239.6</ele>
+    <time>2017-02-28T09:49:30Z</time>
+   </trkpt>
+   <trkpt lat="50.6389180" lon="-3.7904560">
+    <ele>239.9</ele>
+    <time>2017-02-28T09:49:33Z</time>
+   </trkpt>
+   <trkpt lat="50.6388960" lon="-3.7904990">
+    <ele>240.1</ele>
+    <time>2017-02-28T09:49:36Z</time>
+   </trkpt>
+   <trkpt lat="50.6388930" lon="-3.7907200">
+    <ele>241.0</ele>
+    <time>2017-02-28T09:49:48Z</time>
+   </trkpt>
+  </trkseg>
+ </trk>
+</gpx>
