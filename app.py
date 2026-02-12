@@ -1,120 +1,74 @@
 import os
 import json
-import gpxpy
-from datetime import datetime
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
 
 # --- CONFIGURATION ---
-DATA_DIR = "./data"
-GPX_DIR = os.path.join(DATA_DIR, "gpx")
-STAGES_DIR = os.path.join(DATA_DIR, "stages")
-STATIC_IMG_DIR = os.path.join("static", "images") 
-TRIP_START_DATE = datetime(2025, 4, 1)
+DATA_FILE = "trip_data.json"
+STAGES_DIR = os.path.join("data", "stages")
+# Use relative path for now (works locally and on Render if files exist)
+# To use CDN, change to: "https://cdn.jsdelivr.net/gh/YOUR_USER/YOUR_REPO@master/static/images"
+IMG_BASE_URL = "/static/images"
 # ---------------------
 
-def format_duration(seconds):
-    if not seconds: return "N/A"
-    hours, remainder = divmod(int(seconds), 3600)
-    minutes = remainder // 60
-    return f"{hours}h {minutes}m"
-
-def load_data():
-    print("\n--- LOADING DATA V11 ---")
+def load_data_fast():
+    print("--- LOADING PRE-PROCESSED DATA ---")
     routes = []
     total_distance = 0
-    
-    if not os.path.exists(GPX_DIR): os.makedirs(GPX_DIR, exist_ok=True)
-    if not os.path.exists(STAGES_DIR): os.makedirs(STAGES_DIR, exist_ok=True)
-
-    gpx_files = sorted([f for f in os.listdir(GPX_DIR) if f.endswith('.gpx')])
-    file_dates = {} 
-
-    # 1. Parse GPX
-    for idx, filename in enumerate(gpx_files):
-        filepath = os.path.join(GPX_DIR, filename)
-        try:
-            with open(filepath, 'r') as gf:
-                gpx = gpxpy.parse(gf)
-                for track in gpx.tracks:
-                    for segment in track.segments:
-                        if not segment.points: continue
-                        
-                        points = []
-                        ele_data = []
-                        speed_data = []
-                        curr_dist = 0
-                        
-                        start_time = segment.points[0].time.replace(tzinfo=None) if segment.points[0].time else TRIP_START_DATE
-                        day_num = (start_time - TRIP_START_DATE).days + 1
-                        file_dates[idx] = start_time.strftime("%b %d")
-
-                        for i, pt in enumerate(segment.points):
-                            points.append([pt.latitude, pt.longitude])
-                            
-                            speed_val = 0
-                            if i > 0:
-                                dist_delta = pt.distance_3d(segment.points[i-1])
-                                curr_dist += dist_delta / 1000
-                                time_delta = 0
-                                if pt.time and segment.points[i-1].time:
-                                    time_delta = (pt.time - segment.points[i-1].time).total_seconds()
-                                if time_delta > 0:
-                                    speed_val = (dist_delta / time_delta) * 3.6
-                                    if speed_val > 80: speed_val = 0 
-
-                            if i % 5 == 0 or i == len(segment.points)-1:
-                                ele_data.append({"x": round(curr_dist, 2), "y": int(pt.elevation) if pt.elevation else 0})
-                                speed_data.append({"x": round(curr_dist, 2), "y": round(speed_val, 1)})
-
-                        dist_km = segment.length_3d() / 1000
-                        total_distance += dist_km
-                        
-                        dur_str = "N/A"
-                        dur_val = segment.get_duration()
-                        if dur_val: dur_str = format_duration(dur_val)
-
-                        routes.append({
-                            "id": idx,
-                            "day": day_num,
-                            "date": start_time.strftime("%d %b %Y"),
-                            "coords": points,
-                            "elevation": ele_data,
-                            "speed": speed_data,
-                            "distance": round(dist_km, 1),
-                            "duration": dur_str
-                        })
-        except Exception: pass
-
-    # 2. Load Stages
     stages = []
+    
+    # 1. Load the Optimization File
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r') as f:
+            trip_data = json.load(f)
+        routes = trip_data.get('routes', [])
+        total_distance = trip_data.get('total_distance', 0)
+        file_dates = trip_data.get('file_dates', {}) # Keys are strings "0", "1"...
+    else:
+        print("WARNING: trip_data.json not found! Run process_gpx.py first.")
+        return [], [], 0
+
+    # 2. Load Stages (Lightweight JSON read)
     if os.path.exists(STAGES_DIR):
         stage_files = sorted([f for f in os.listdir(STAGES_DIR) if f.endswith('.json')])
         for i, sf in enumerate(stage_files):
             try:
                 with open(os.path.join(STAGES_DIR, sf), 'r') as f:
                     data = json.load(f)
-                    s_idx = data.get('start_index', 0)
-                    e_idx = data.get('end_index', 0)
+                    
+                    # Look up dates using the pre-calculated map
+                    # JSON keys are always strings, so convert index to str
+                    s_idx = str(data.get('start_index', 0))
+                    e_idx = str(data.get('end_index', 0))
                     start_str = file_dates.get(s_idx, "Unknown")
                     end_str = file_dates.get(e_idx, "Unknown")
                     data['date_range'] = f"{start_str} - {end_str}"
 
-                    stage_folder = f"{i+1:02d}" 
-                    local_img_path = os.path.join(STATIC_IMG_DIR, stage_folder)
-                    found_imgs = []
-                    if os.path.exists(local_img_path):
-                        for img_file in sorted(os.listdir(local_img_path)):
-                            if img_file.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                                found_imgs.append(f"/static/images/{stage_folder}/{img_file}")
+                    # IMAGE LOGIC
+                    stage_folder = f"{i+1:02d}"
+                    # Check if local folder exists to know if we should add images
+                    local_path = os.path.join("static", "images", stage_folder)
                     
-                    if found_imgs: data['images'] = found_imgs
-                    elif 'images' not in data: data['images'] = []
+                    img_urls = []
+                    if os.path.exists(local_path):
+                        for img in sorted(os.listdir(local_path)):
+                            if img.lower().endswith(('jpg','jpeg','png','webp')):
+                                # Construct URL (either local relative or CDN absolute)
+                                if IMG_BASE_URL.startswith("http"):
+                                    img_urls.append(f"{IMG_BASE_URL}/{stage_folder}/{img}")
+                                else:
+                                    img_urls.append(f"{IMG_BASE_URL}/{stage_folder}/{img}")
+                    
+                    data['images'] = img_urls
                     stages.append(data)
-            except Exception: pass
+            except Exception as e:
+                print(f"Error loading stage {sf}: {e}")
 
-    return routes, stages, round(total_distance)
+    return routes, stages, total_distance
+
+# Load once at startup
+CACHED_ROUTES, CACHED_STAGES, CACHED_DIST = load_data_fast()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -152,45 +106,43 @@ HTML_TEMPLATE = """
             pointer-events: none; z-index: 5; transition: all 1.2s ease;
         }
 
-        /* --- HERO TEXT (RE-ENGINEERED ANIMATION) --- */
+        /* --- HERO TEXT --- */
         .hero { 
             position: fixed; inset: 0; pointer-events: none; z-index: 20;
-            user-select: none; /* Prevents text highlighting bug */
+            user-select: none;
         }
         
         .hero-content { 
             position: absolute;
-            top: 50%; left: 5vw; /* Start Centered Vertically */
+            top: 50%; left: 5vw;
             transform: translateY(-50%); 
             transform-origin: top left;
             pointer-events: auto; 
-            transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1); /* Ultra Smooth Bezier */
+            transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* MAP MODE: Smoothly float to top left */
+        /* MAP MODE */
         body.map-mode .hero-content {
             top: 30px; left: 30px;
-            transform: translateY(0) scale(0.65); /* Scale down smoothly */
+            transform: translateY(0) scale(0.65);
             background: rgba(255,255,255,0.85); backdrop-filter: blur(10px);
             padding: 20px; border-radius: 12px; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
         
-        /* Fade out gradient when moving title */
         body.map-mode .hero-gradient { opacity: 0; width: 0; }
         
-        /* JOURNEY MODE: Hide completely */
+        /* JOURNEY MODE */
         body.journey-mode .hero { opacity: 0; pointer-events: none; }
         body.journey-mode .hero-content { transform: translateY(-50px); }
         body.journey-mode .hero-gradient { opacity: 0; }
 
-        /* --- START BUTTON (Bottom Center) --- */
+        /* --- START BUTTON --- */
         .start-btn-container {
             position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
             z-index: 30; pointer-events: auto;
             transition: opacity 0.5s ease, transform 0.5s ease;
         }
-        /* KEY FIX: We DO NOT hide this in map-mode anymore, only in journey-mode */
         body.journey-mode .start-btn-container { 
             opacity: 0; pointer-events: none; transform: translate(-50%, 50px); 
         }
@@ -366,7 +318,6 @@ HTML_TEMPLATE = """
         let activeChart = null;
         let currentRouteData = null;
         let chartType = 'ele';
-        let isMapMode = false;
 
         // --- INTERACTION LOGIC ---
         map.on('mousedown dragstart', function() {
@@ -533,8 +484,11 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
-    routes, stages, total_km = load_data()
-    return render_template_string(HTML_TEMPLATE, routes=routes, stages=stages, distance=total_km)
+    return render_template_string(HTML_TEMPLATE, 
+                                  routes=CACHED_ROUTES, 
+                                  stages=CACHED_STAGES, 
+                                  distance=CACHED_DIST)
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
