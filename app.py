@@ -20,8 +20,7 @@ def haversine(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-def simplify_route(coords, threshold_meters=30): 
-    # Increased to 30m for better mobile performance while keeping shape
+def simplify_route(coords, threshold_meters=30):
     if not coords: return []
     new_coords = [coords[0]]
     last_pt = coords[0]
@@ -33,8 +32,8 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v45():
-    print("\n--- LOADING V45 MOBILE OPTIMIZED ---")
+def load_data_v47():
+    print("\n--- LOADING V47 POLISHED ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -112,7 +111,7 @@ def load_data_v45():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v45()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v47()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -131,10 +130,8 @@ HTML_TEMPLATE = """
         h1, h2 { font-family: 'Playfair Display', serif; }
         .mono { font-family: 'Space Mono', monospace; }
 
-        /* GPU LAYERS FOR PERFORMANCE */
         .hero, .ui-layer, #gallery-window, #stage-card { will-change: transform, opacity; transform: translate3d(0,0,0); }
 
-        /* MAP */
         #map-container { position: fixed; inset: 0; z-index: 0; }
         #map { width: 100%; height: 100%; outline: none; background: #aad3df; }
         
@@ -157,7 +154,6 @@ HTML_TEMPLATE = """
 
         /* MARKERS */
         .start-marker, .end-marker { background: #000; border: 2px solid white; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.5); z-index: 1000 !important; }
-        
         .story-marker-wrap { position: relative; width: 0; height: 0; }
         .story-dot {
             position: absolute; top: -8px; left: -8px; width: 16px; height: 16px; background: var(--story);
@@ -180,10 +176,10 @@ HTML_TEMPLATE = """
             max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);
             display: none; flex-direction: column; overflow: hidden; z-index: 5000;
         }
-        /* Mobile Fullscreen Gallery */
         @media (max-width: 768px) {
             #gallery-window { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; max-width: none; max-height: none; border-radius: 0; }
-            .gal-header { padding-top: 10px; } /* Safe area notch */
+            .gal-header { padding-top: 10px; } 
+            .gal-close { position: absolute; bottom: 20px; right: 20px; background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; }
         }
         #gallery-window.dragging { transition: none !important; }
         #gallery-window.visible { display: flex; animation: popup 0.3s ease; }
@@ -201,17 +197,14 @@ HTML_TEMPLATE = """
         .gal-touch-left::after { content: '❮'; } .gal-touch-right::after { content: '❯'; }
         .gal-expand-btn { position: absolute; bottom: 15px; right: 15px; width: 30px; height: 30px; background: rgba(0,0,0,0.5); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; z-index: 200; }
 
-        /* DEV MODE */
-        .dev-label { background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: bold; border: 1px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: nowrap; }
-
         /* UI ELEMENTS */
+        .dev-label { background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: bold; border: 1px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: nowrap; }
         .ctrl-group { position: fixed; top: 20px; right: 20px; z-index: 6000; display: flex; gap: 10px; pointer-events: auto; }
         .ctrl-btn { width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 18px; color: var(--text); }
         
         .start-btn-container { position: absolute; bottom: 30px; left: 30px; transform: none; z-index: 300; pointer-events: auto; }
         .start-btn { background: white; color: var(--text); border: 1px solid var(--text); padding: 15px 40px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 3px; cursor: pointer; }
         
-        /* STAGE CARD */
         #stage-card { 
             position: absolute; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; 
             background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; 
@@ -223,19 +216,20 @@ HTML_TEMPLATE = """
         }
         body.journey-mode #stage-card { transform: translateX(0); }
         
-        .nav-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: white; display: flex; align-items: center; justify-content: center; transform: translateY(100%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
+        .nav-bar { 
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: white; 
+            display: flex; align-items: center; justify-content: center; 
+            transform: translateY(100%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; 
+        }
+        @media (max-width: 768px) { .nav-bar { justify-content: flex-start; overflow-x: auto; padding-left: 20px; padding-right: 60px; } .timeline { min-width: 200%; } }
         body.journey-mode .nav-bar { transform: translateY(0); }
-        .nav-close { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; color: #000; cursor: pointer; font-weight: bold; }
+        .nav-close { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; color: #000; cursor: pointer; font-weight: bold; background: rgba(255,255,255,0.8); width: 40px; height: 70px; display: flex; align-items: center; justify-content: center; z-index: 500; }
         
         .timeline { position: relative; width: 80%; height: 4px; background: #e2e8f0; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; }
         .nav-dot.active { background: var(--accent); transform: scale(1.3); }
-        .dot-tooltip { 
-            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); 
-            background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; 
-            border-radius: 4px; opacity: 1; white-space: nowrap; pointer-events: none;
-        }
+        .dot-tooltip { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; border-radius: 4px; opacity: 1; white-space: nowrap; pointer-events: none; }
         
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
         .thumb-wrap { flex: 0 0 100px; height: 70px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; }
@@ -247,12 +241,47 @@ HTML_TEMPLATE = """
         .chart-toggle { cursor: pointer; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #eee; color: #666; }
         .chart-toggle.active { background: var(--accent); color: white; }
 
+        /* STORY MODE */
         #story-overlay { position: fixed; inset: 0; z-index: 2000; display: none; }
         body.story-mode #story-overlay { display: block; }
-        .story-scroller { position: absolute; top: 0; right: 0; width: 60%; height: 100%; overflow-y: auto; padding: 50vh 0 0 0; background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); scrollbar-width: none; pointer-events: auto; }
-        @media (max-width: 768px) { .story-scroller { width: 100%; background: linear-gradient(to top, rgba(241, 245, 249, 0.98) 50%, transparent); } }
+        .story-scroller { 
+            position: absolute; top: 0; right: 0; width: 60%; height: 100%; 
+            overflow-y: auto; padding: 50vh 0 0 0; 
+            background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); 
+            scrollbar-width: none; pointer-events: auto; 
+        }
         .story-card { background: white; margin: 0 10% 50vh 10%; padding: 25px; border-radius: 12px; opacity: 0.3; transition: 0.5s; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .story-card.active { opacity: 1; border-left: 5px solid var(--story); }
+        
+        @media (max-width: 768px) {
+            .story-scroller { 
+                width: 100%; height: 45%; top: auto; bottom: 0; 
+                display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden;
+                padding: 0; /* Padding handled by spacers */
+                background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9));
+                align-items: center; scroll-snap-type: x mandatory;
+            }
+            .story-card { 
+                flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; 
+                opacity: 0.5; scroll-snap-align: center; margin-bottom: 0;
+            }
+            .story-card.active { opacity: 1; transform: scale(1.05); }
+        }
+
+        /* SCROLL HINT (STYLISH) */
+        .scroll-hint {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            color: #000; font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 2px;
+            animation: bounce 2s infinite; opacity: 0; transition: opacity 0.5s; z-index: 3000; pointer-events: none;
+        }
+        .scroll-hint::after { content: 'SCROLL ↓'; display: block; text-align: center; }
+        @media (max-width: 768px) {
+            .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; }
+            .scroll-hint::after { content: 'SWIPE →'; }
+        }
+        body.story-mode .scroll-hint { opacity: 1; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
+
         .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
         .bike-icon.visible { opacity: 1; }
         .map-chapter-thumb { width: 30px; height: 30px; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: 0.3s; }
@@ -310,21 +339,19 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <div id="story-overlay"><div class="scroll-capture" onwheel="forwardScroll(event)"></div><div class="story-scroller" id="story-scroller" onscroll="checkStoryScroll()"></div></div>
+    <div id="story-overlay">
+        <div class="story-scroller" id="story-scroller" onscroll="checkStoryScroll()"></div>
+        <div class="scroll-hint" id="scroll-hint"></div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const routes = {{ routes|tojson }};
         const STAGES = {{ stages|tojson }};
         const STORIES = {{ stories|tojson }};
+        const isMobile = window.innerWidth < 768;
         
-        // CANVAS RENDERER FOR PERFORMANCE
-        var map = L.map('map', { 
-            zoomControl: false, 
-            attributionControl: false,
-            renderer: L.canvas() // IMPORTANT FOR MOBILE
-        }).setView([50, 0], 4);
-        
+        var map = L.map('map', { zoomControl: false, attributionControl: false, renderer: L.canvas() }).setView([50, 0], 4);
         const voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
         const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
         voyager.addTo(map);
@@ -348,7 +375,6 @@ HTML_TEMPLATE = """
             allPoints.push(...route.coords);
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
             routeLayers.push(visual);
-            // Invisible Hitbox
             const hit = L.polyline(route.coords, { color: 'transparent', weight: 30, opacity: 0, zIndexOffset: 1000 }).addTo(map);
             hit.on('mouseover', () => { visual.setStyle({ color: '#1d3557', weight: 5, opacity: 1 }); });
             hit.on('mouseout', () => { visual.setStyle({ color: '#e63946', weight: 3, opacity: 0.9 }); });
@@ -362,10 +388,8 @@ HTML_TEMPLATE = """
             storyMarkers.push({ marker: m, dayIdx: story.closest_segment });
         });
 
-        // --- INTERACTION ---
         map.on('mousedown touchstart wheel', () => document.body.classList.add('shrunk'));
 
-        // --- DEV & KEYS ---
         window.addEventListener('keydown', (e) => {
             if(e.key === '`' || e.key === '~') { isDevMode = !isDevMode; devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); }
             if(galWin.classList.contains('visible')) {
@@ -378,12 +402,14 @@ HTML_TEMPLATE = """
         // --- INIT ---
         window.addEventListener('load', () => {
             if(allPoints.length) {
-                const pad = window.innerWidth < 768 ? [20, 20] : [window.innerWidth * 0.25, 50];
-                map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50] });
+                let boundsPoints = allPoints;
+                if(isMobile) boundsPoints = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
+                const pad = isMobile ? [20, 20] : [window.innerWidth * 0.25, 50];
+                map.fitBounds(L.polyline(boundsPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50] });
+                
                 L.marker(allPoints[0], { icon: L.divIcon({ className: 'start-marker' }) }).addTo(map);
                 L.marker(allPoints[allPoints.length-1], { icon: L.divIcon({ className: 'end-marker' }) }).addTo(map);
 
-                // Efficient Animation
                 setTimeout(() => {
                     requestAnimationFrame(() => {
                         routeLayers.forEach((l, i) => setTimeout(() => { 
@@ -437,12 +463,21 @@ HTML_TEMPLATE = """
             currentMaxProgress = s.max_progress || 1.0;
             if(bikeMarker) map.removeLayer(bikeMarker); bikeMarker = null;
             storyChapterMarkers.forEach(m => map.removeLayer(m)); storyChapterMarkers = [];
-            const sc = document.getElementById('story-scroller'); sc.innerHTML = ''; sc.scrollTop = 0;
+            
+            const sc = document.getElementById('story-scroller'); 
+            sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
+            
+            // SPACER LOGIC (Centers first card)
+            const spacer = document.createElement('div');
+            spacer.style.minWidth = isMobile ? '50vw' : '0';
+            spacer.style.height = isMobile ? '10px' : '50vh'; 
+            sc.appendChild(spacer);
+
             currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
             if(currentStoryPoints.length) {
                 setupMath(currentStoryPoints);
-                const pad = window.innerWidth < 768 ? [20, 50] : [50, 50];
-                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: pad, duration: 1.5 });
+                const pad = isMobile ? [20, 100] : [50, 50];
+                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingTopLeft: [20,20], paddingBottomRight: pad, duration: 1.5 });
                 map.once('moveend', () => {
                     if(!document.body.classList.contains('story-mode')) return;
                     bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '🚴', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
@@ -455,19 +490,28 @@ HTML_TEMPLATE = """
                 });
             }
             s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<img src="${c.image}"><p>${c.text}</p>`; sc.appendChild(d); });
+            
+            // TRAILING SPACER
+            const trail = document.createElement('div'); trail.style.minWidth = isMobile ? '50vw' : '0'; sc.appendChild(trail);
+            document.getElementById('scroll-hint').style.opacity = '1';
         }
 
-        // THROTTLED SCROLL
         let lastScroll = 0;
         function checkStoryScroll() {
-            const now = Date.now();
-            if (now - lastScroll < 16) return; // 60fps cap
-            lastScroll = now;
-
+            const now = Date.now(); if (now - lastScroll < 16) return; lastScroll = now;
             const sc = document.getElementById('story-scroller');
-            if((sc.scrollTop + sc.clientHeight) > (sc.scrollHeight - 50)) { exitStory(); return; }
             
-            const scrollPct = sc.scrollTop / (sc.scrollHeight - sc.clientHeight - 200);
+            if(sc.scrollLeft > 10 || sc.scrollTop > 10) document.getElementById('scroll-hint').style.opacity = '0';
+
+            let scrollPct = 0;
+            // ROBUST MOBILE CALCULATION
+            if(isMobile) {
+                scrollPct = sc.scrollLeft / (sc.scrollWidth - sc.clientWidth);
+            } else {
+                if((sc.scrollTop + sc.clientHeight) > (sc.scrollHeight - 50)) { exitStory(); return; }
+                scrollPct = sc.scrollTop / (sc.scrollHeight - sc.clientHeight - 200);
+            }
+            
             const constrainedPct = Math.max(0, Math.min(1, scrollPct));
             const targetDist = constrainedPct * currentMaxProgress * totalRouteLength;
             
@@ -475,7 +519,10 @@ HTML_TEMPLATE = """
             
             document.querySelectorAll('.story-card').forEach((card, i) => {
                 const box = card.getBoundingClientRect();
-                if(Math.abs((box.top + box.height/2) - (window.innerHeight/2)) < 300) {
+                const center = isMobile ? (box.left + box.width/2) : (box.top + box.height/2);
+                const screenCenter = isMobile ? (window.innerWidth/2) : (window.innerHeight/2);
+                
+                if(Math.abs(center - screenCenter) < (isMobile ? 150 : 300)) {
                     if(!card.classList.contains('active')) { card.classList.add('active'); storyChapterMarkers.forEach((m, idx) => m._icon && (idx === i ? m._icon.classList.add('active') : m._icon.classList.remove('active'))); }
                 } else card.classList.remove('active');
             });
@@ -496,9 +543,11 @@ HTML_TEMPLATE = """
 
         function resetView() { 
             exitStory(); closeGallery(); closePanel(); exitJourneyMode();
-            document.body.classList.remove('shrunk', 'map-mode'); // Reset Title Only Here
-            const pad = window.innerWidth < 768 ? [20, 20] : [window.innerWidth * 0.25, 50];
-            map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50], duration: 1.5 }); 
+            document.body.classList.remove('shrunk', 'map-mode');
+            let boundsPoints = allPoints;
+            if(isMobile) boundsPoints = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
+            const pad = isMobile ? [20, 20] : [window.innerWidth * 0.25, 50];
+            map.fitBounds(L.polyline(boundsPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50], duration: 1.5 }); 
         }
         
         function startJourney() { 
@@ -515,7 +564,6 @@ HTML_TEMPLATE = """
                     track.appendChild(d); 
                 }); 
             } 
-            // setStage(0); REMOVED AUTO-ZOOM
         }
 
         function setStage(index) {
