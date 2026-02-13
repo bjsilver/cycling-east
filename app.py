@@ -20,7 +20,8 @@ def haversine(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-def simplify_route(coords, threshold_meters=50):
+def simplify_route(coords, threshold_meters=30): 
+    # Increased to 30m for better mobile performance while keeping shape
     if not coords: return []
     new_coords = [coords[0]]
     last_pt = coords[0]
@@ -32,8 +33,8 @@ def simplify_route(coords, threshold_meters=50):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v44():
-    print("\n--- LOADING V44 LOGIC FIXES ---")
+def load_data_v45():
+    print("\n--- LOADING V45 MOBILE OPTIMIZED ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -82,7 +83,6 @@ def load_data_v44():
                             elif 'lat' in s: s['location'] = [s['lat'], s['lon']]
                             else: continue
                         
-                        # Closest Segment Logic
                         min_dist = float('inf')
                         closest_idx = 0
                         for idx, r in enumerate(routes):
@@ -97,41 +97,29 @@ def load_data_v44():
                             if 'route_segment_id' in s: s['route_segment_ids'] = [s['route_segment_id']]
                             else: s['route_segment_ids'] = []
                         
-                        # Prefix Logic + Thumbnail Fix
                         prefix = s.get('img_prefix', '')
                         max_prog = 0
-                        
                         if 'chapters' in s:
                             for chap in s['chapters']:
-                                # Update max progress for bike logic
-                                if 'progress' in chap and chap['progress'] > max_prog:
-                                    max_prog = chap['progress']
-                                    
+                                if 'progress' in chap and chap['progress'] > max_prog: max_prog = chap['progress']
                                 if prefix and not chap['image'].startswith('http'):
                                     chap['image'] = prefix + chap['image']
                         
                         s['max_progress'] = max_prog if max_prog > 0 else 1.0
-
-                        # Thumbnail Extraction (Now using the prefixed path)
-                        if 'chapters' in s and s['chapters']:
-                            s['thumb'] = s['chapters'][0]['image']
-                        else:
-                            s['thumb'] = ""
-                        
+                        s['thumb'] = s['chapters'][0].get('image', '') if 'chapters' in s and s['chapters'] else ""
                         stories.append(s)
-                except Exception as e:
-                    print(f"Error loading {sf}: {e}")
+                except: pass
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v44()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v45()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cycling East</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -139,12 +127,17 @@ HTML_TEMPLATE = """
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Inter:wght@300;400;600&family=Space+Mono&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #e63946; --speed: #457b9d; --text: #1d3557; --story: #475569; --card-bg: rgba(255, 255, 255, 0.95); }
-        body { background: #f1f5f9; color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; }
+        body { background: #f1f5f9; color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; touch-action: none; }
         h1, h2 { font-family: 'Playfair Display', serif; }
         .mono { font-family: 'Space Mono', monospace; }
 
+        /* GPU LAYERS FOR PERFORMANCE */
+        .hero, .ui-layer, #gallery-window, #stage-card { will-change: transform, opacity; transform: translate3d(0,0,0); }
+
+        /* MAP */
         #map-container { position: fixed; inset: 0; z-index: 0; }
         #map { width: 100%; height: 100%; outline: none; background: #aad3df; }
+        
         .ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 100; transition: opacity 0.5s; }
         .interactive { pointer-events: auto; }
         
@@ -156,6 +149,8 @@ HTML_TEMPLATE = """
         .hero { position: fixed; inset: 0; pointer-events: none; z-index: 200; user-select: none; transition: 1s cubic-bezier(0.16, 1, 0.3, 1); }
         .hero-content { position: absolute; top: 50%; left: 5vw; transform: translateY(-50%); transition: inherit; transform-origin: top left; }
         .hero h1 { font-size: 6rem; line-height: 1; }
+        @media (max-width: 768px) { .hero h1 { font-size: 3.5rem; } .hero-content { left: 20px; } }
+        
         .shrunk .hero-content { top: 20px; left: 20px; transform: scale(0.5) !important; opacity: 0.8; }
         .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; }
         .shrunk .hero-gradient { opacity: 0; transform: translateX(-100%); }
@@ -179,11 +174,16 @@ HTML_TEMPLATE = """
         .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
         .map-zoomed-in .story-bubble { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
 
-        /* GALLERY */
+        /* GALLERY WINDOW */
         #gallery-window {
             position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; 
             max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);
             display: none; flex-direction: column; overflow: hidden; z-index: 5000;
+        }
+        /* Mobile Fullscreen Gallery */
+        @media (max-width: 768px) {
+            #gallery-window { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; max-width: none; max-height: none; border-radius: 0; }
+            .gal-header { padding-top: 10px; } /* Safe area notch */
         }
         #gallery-window.dragging { transition: none !important; }
         #gallery-window.visible { display: flex; animation: popup 0.3s ease; }
@@ -201,30 +201,40 @@ HTML_TEMPLATE = """
         .gal-touch-left::after { content: '❮'; } .gal-touch-right::after { content: '❯'; }
         .gal-expand-btn { position: absolute; bottom: 15px; right: 15px; width: 30px; height: 30px; background: rgba(0,0,0,0.5); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; z-index: 200; }
 
-        /* UI ELEMENTS */
+        /* DEV MODE */
         .dev-label { background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: bold; border: 1px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: nowrap; }
+
+        /* UI ELEMENTS */
         .ctrl-group { position: fixed; top: 20px; right: 20px; z-index: 6000; display: flex; gap: 10px; pointer-events: auto; }
         .ctrl-btn { width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 18px; color: var(--text); }
         
         .start-btn-container { position: absolute; bottom: 30px; left: 30px; transform: none; z-index: 300; pointer-events: auto; }
         .start-btn { background: white; color: var(--text); border: 1px solid var(--text); padding: 15px 40px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 3px; cursor: pointer; }
         
-        #stage-card { position: absolute; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
+        /* STAGE CARD */
+        #stage-card { 
+            position: absolute; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; 
+            background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; 
+            transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; 
+        }
+        @media (max-width: 768px) {
+            #stage-card { top: auto; bottom: 80px; left: 10px; right: 10px; width: auto; transform: translateY(150%); }
+            body.journey-mode #stage-card { transform: translateY(0); }
+        }
         body.journey-mode #stage-card { transform: translateX(0); }
+        
         .nav-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: white; display: flex; align-items: center; justify-content: center; transform: translateY(100%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
         body.journey-mode .nav-bar { transform: translateY(0); }
         .nav-close { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; color: #000; cursor: pointer; font-weight: bold; }
+        
         .timeline { position: relative; width: 80%; height: 4px; background: #e2e8f0; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; }
         .nav-dot.active { background: var(--accent); transform: scale(1.3); }
-        
-        /* FIXED: Tooltips always visible */
         .dot-tooltip { 
             position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); 
             background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; 
-            border-radius: 4px; opacity: 1; /* Always ON */
-            white-space: nowrap; pointer-events: none;
+            border-radius: 4px; opacity: 1; white-space: nowrap; pointer-events: none;
         }
         
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
@@ -233,12 +243,14 @@ HTML_TEMPLATE = """
         
         #detail-panel { position: absolute; bottom: 90px; right: 30px; width: 400px; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; transform: translateY(150%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; }
         #detail-panel.open { transform: translateY(0); }
+        @media (max-width: 768px) { #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; } }
         .chart-toggle { cursor: pointer; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #eee; color: #666; }
         .chart-toggle.active { background: var(--accent); color: white; }
 
         #story-overlay { position: fixed; inset: 0; z-index: 2000; display: none; }
         body.story-mode #story-overlay { display: block; }
         .story-scroller { position: absolute; top: 0; right: 0; width: 60%; height: 100%; overflow-y: auto; padding: 50vh 0 0 0; background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); scrollbar-width: none; pointer-events: auto; }
+        @media (max-width: 768px) { .story-scroller { width: 100%; background: linear-gradient(to top, rgba(241, 245, 249, 0.98) 50%, transparent); } }
         .story-card { background: white; margin: 0 10% 50vh 10%; padding: 25px; border-radius: 12px; opacity: 0.3; transition: 0.5s; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .story-card.active { opacity: 1; border-left: 5px solid var(--story); }
         .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
@@ -306,7 +318,13 @@ HTML_TEMPLATE = """
         const STAGES = {{ stages|tojson }};
         const STORIES = {{ stories|tojson }};
         
-        var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([50, 0], 4);
+        // CANVAS RENDERER FOR PERFORMANCE
+        var map = L.map('map', { 
+            zoomControl: false, 
+            attributionControl: false,
+            renderer: L.canvas() // IMPORTANT FOR MOBILE
+        }).setView([50, 0], 4);
+        
         const voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
         const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
         voyager.addTo(map);
@@ -323,14 +341,15 @@ HTML_TEMPLATE = """
         let bikeMarker = null, storyChapterMarkers = [], currentStoryPoints = [], routeDistances = [], totalRouteLength = 0;
         let allPoints = [], devLabels = [], storyMarkers = [], isDevMode = false;
         let savedMapState = null; 
-        let currentMaxProgress = 1.0; // Store specific story max progress
+        let currentMaxProgress = 1.0;
 
         // --- ROUTES ---
         routes.forEach((route, idx) => {
             allPoints.push(...route.coords);
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
             routeLayers.push(visual);
-            const hit = L.polyline(route.coords, { color: 'transparent', weight: 25, opacity: 0, zIndexOffset: 1000 }).addTo(map);
+            // Invisible Hitbox
+            const hit = L.polyline(route.coords, { color: 'transparent', weight: 30, opacity: 0, zIndexOffset: 1000 }).addTo(map);
             hit.on('mouseover', () => { visual.setStyle({ color: '#1d3557', weight: 5, opacity: 1 }); });
             hit.on('mouseout', () => { visual.setStyle({ color: '#e63946', weight: 3, opacity: 0.9 }); });
             hit.on('click', (e) => { L.DomEvent.stopPropagation(e); showDetail(route); });
@@ -343,7 +362,7 @@ HTML_TEMPLATE = """
             storyMarkers.push({ marker: m, dayIdx: story.closest_segment });
         });
 
-        // --- INTERACTION (SHRINK) ---
+        // --- INTERACTION ---
         map.on('mousedown touchstart wheel', () => document.body.classList.add('shrunk'));
 
         // --- DEV & KEYS ---
@@ -359,15 +378,19 @@ HTML_TEMPLATE = """
         // --- INIT ---
         window.addEventListener('load', () => {
             if(allPoints.length) {
-                map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: [window.innerWidth * 0.25, 0], paddingBottomRight: [50, 50] });
+                const pad = window.innerWidth < 768 ? [20, 20] : [window.innerWidth * 0.25, 50];
+                map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50] });
                 L.marker(allPoints[0], { icon: L.divIcon({ className: 'start-marker' }) }).addTo(map);
                 L.marker(allPoints[allPoints.length-1], { icon: L.divIcon({ className: 'end-marker' }) }).addTo(map);
 
+                // Efficient Animation
                 setTimeout(() => {
-                    routeLayers.forEach((l, i) => setTimeout(() => { 
-                        l.setStyle({opacity:1, color:'#fff', weight:4}); 
-                        setTimeout(()=>l.setStyle({color:'#e63946', weight:3, opacity: 0.9}), 150); 
-                    }, i*30)); 
+                    requestAnimationFrame(() => {
+                        routeLayers.forEach((l, i) => setTimeout(() => { 
+                            l.setStyle({opacity:1, color:'#fff', weight:4}); 
+                            setTimeout(()=>l.setStyle({color:'#e63946', weight:3, opacity: 0.9}), 100); 
+                        }, i*20)); 
+                    });
                 }, 800);
                 
                 routes.forEach((r, i) => {
@@ -411,14 +434,15 @@ HTML_TEMPLATE = """
         function startStory(s) {
             document.body.classList.add('story-mode', 'shrunk'); closePanel();
             savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
-            currentMaxProgress = s.max_progress || 1.0; // USE MAX PROGRESS
+            currentMaxProgress = s.max_progress || 1.0;
             if(bikeMarker) map.removeLayer(bikeMarker); bikeMarker = null;
             storyChapterMarkers.forEach(m => map.removeLayer(m)); storyChapterMarkers = [];
             const sc = document.getElementById('story-scroller'); sc.innerHTML = ''; sc.scrollTop = 0;
             currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
             if(currentStoryPoints.length) {
                 setupMath(currentStoryPoints);
-                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingTopLeft: [50, 50], paddingBottomRight: [window.innerWidth*0.6+50, 50], duration: 1.5 });
+                const pad = window.innerWidth < 768 ? [20, 50] : [50, 50];
+                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: pad, duration: 1.5 });
                 map.once('moveend', () => {
                     if(!document.body.classList.contains('story-mode')) return;
                     bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '🚴', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
@@ -433,14 +457,19 @@ HTML_TEMPLATE = """
             s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<img src="${c.image}"><p>${c.text}</p>`; sc.appendChild(d); });
         }
 
+        // THROTTLED SCROLL
+        let lastScroll = 0;
         function checkStoryScroll() {
+            const now = Date.now();
+            if (now - lastScroll < 16) return; // 60fps cap
+            lastScroll = now;
+
             const sc = document.getElementById('story-scroller');
             if((sc.scrollTop + sc.clientHeight) > (sc.scrollHeight - 50)) { exitStory(); return; }
             
-            // FIXED MATH: Scroll % maps to Story Max Progress
             const scrollPct = sc.scrollTop / (sc.scrollHeight - sc.clientHeight - 200);
             const constrainedPct = Math.max(0, Math.min(1, scrollPct));
-            const targetDist = constrainedPct * currentMaxProgress * totalRouteLength; // Apply Max Progress
+            const targetDist = constrainedPct * currentMaxProgress * totalRouteLength;
             
             if(bikeMarker && totalRouteLength > 0) bikeMarker.setLatLng(getPtAtD(targetDist));
             
@@ -454,7 +483,7 @@ HTML_TEMPLATE = """
 
         function exitStory() {
             if(!document.body.classList.contains('story-mode')) return; 
-            document.body.classList.remove('story-mode'); // Keep shrunk state
+            document.body.classList.remove('story-mode');
             if(bikeMarker) map.removeLayer(bikeMarker); bikeMarker = null;
             storyChapterMarkers.forEach(m => map.removeLayer(m));
             if(savedMapState) map.flyTo(savedMapState.center, savedMapState.zoom, { duration: 1.5 });
@@ -467,8 +496,9 @@ HTML_TEMPLATE = """
 
         function resetView() { 
             exitStory(); closeGallery(); closePanel(); exitJourneyMode();
-            document.body.classList.remove('shrunk', 'map-mode'); // ONLY HERE remove shrunk
-            map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: [window.innerWidth * 0.25, 0], paddingBottomRight: [50, 50], duration: 1.5 }); 
+            document.body.classList.remove('shrunk', 'map-mode'); // Reset Title Only Here
+            const pad = window.innerWidth < 768 ? [20, 20] : [window.innerWidth * 0.25, 50];
+            map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50], duration: 1.5 }); 
         }
         
         function startJourney() { 
@@ -476,7 +506,6 @@ HTML_TEMPLATE = """
             closePanel();
             document.getElementById('chapter-btn-wrap').style.display = 'none';
             const track = document.getElementById('timeline-track'); 
-            // FIXED: Just show UI, don't auto-zoom
             if(track.querySelectorAll('.nav-dot').length === 0) { 
                 STAGES.forEach((s, i) => { 
                     const d = document.createElement('div'); d.className = 'nav-dot'; 
@@ -486,6 +515,7 @@ HTML_TEMPLATE = """
                     track.appendChild(d); 
                 }); 
             } 
+            // setStage(0); REMOVED AUTO-ZOOM
         }
 
         function setStage(index) {
