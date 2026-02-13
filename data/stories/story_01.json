@@ -21,30 +21,106 @@
             "progress": 0.11
         },
                 {
-            "text": "resting during the afternoon heat",
+            "text": "Resting during the afternoon heat",
             "image": "resting.jpg",
             "progress": 0.14
         },
                         {
-            "text": "the Saghirdasht pass",
+            "text": "The Saghirdasht pass",
             "image": "pass.jpg",
             "progress": 0.15
         },
                     {
-            "text": "food poisoning at an idyllic camp spot",
+            "text": "Food poisoning at an idyllic camp spot",
             "image": "poison.jpg",
-            "progress": 0.17
+            "progress": 0.18
         },
         {
             "text": "Over the other side of the pass",
             "image": "other.jpg",
-            "progress": 0.2
+            "progress": 0.21
         },
                 {
-            "text": "along the afghan border",
+            "text": "Along the Afghan border",
             "image": "afghan.jpg",
-            "progress": 0.22
+            "progress": 0.23
+        },
+        {
+            "text": "Into Roshon, the start of the Pamiri area",
+            "image": "goodbye.jpg",
+            "progress": 0.25
+        },
+                {
+            "text": "Goodbye to Sanne and Siemon",
+            "image": "goodbye2.jpg",
+            "progress": 0.26
+        },
+                        {
+            "text": "Cycling alone for the first time in months",
+            "image": "alone.jpg",
+            "progress": 0.29
+        },
+                    {
+            "text": "Had a couple days in Khorog to prepare for the really hardcore part. Ate  the best meal of Tajikistan in the local curryhouse ",
+            "image": "Khorog.jpg",
+            "progress": 0.31
+        },
+        {
+            "text": "Up into the mountains",
+            "image": "mountains.jpg",
+            "progress": 0.35
+        },
+                {
+            "text": "",
+            "image": "pamiris.jpg",
+            "progress": 0.38
+        },
+        {
+            "text": "Up onto the bleak high plateau",
+            "image": "plateau.jpg",
+            "progress": 0.41
+        },
+                {
+            "text": "Otherworldly landscapes",
+            "image": "otherwordly.jpg",
+            "progress": 0.45
+        },
+                        {
+            "text": "The remote town of Alichur. Sleeping at 3880m",
+            "image": "settlement.jpg",
+            "progress": 0.48
+        },
+                    {
+            "text": "Had a couple days in Khorog to prepare for the really hardcore part. Ate  the best meal of Tajikistan in the local curryhouse ",
+            "image": "Khorog.jpg",
+            "progress": 0.56
+        },
+        {
+            "text": "The top of the Ak-Baital pass. The highest point ofthe Pamir Highway and my trip.",
+            "image": "bloody.jpg",
+            "progress": 0.61
+        },
+                {
+            "text": "After that I got hit by altitude sickness and took a half rest day in Karakul, but I didn't want to stay for long as there was nothing there and I wanted to get down off the plateau",
+            "image": "suffering.jpg",
+            "progress": 0.66
+        },
+        {
+            "text": "The last two passes of the Pamirs pushed me to my limits",
+            "image": "limits.jpg",
+            "progress": 0.71
+        },
+                        {
+            "text": "Through the no man's land between Tajikistan and Kyrgyzstan",
+            "image": "noman.jpg",
+            "progress": 0.8
+        },
+                    {
+            "text": "With some relief I had put the Pamir Highway behind me, and made it down to the relatively low (3500m+) altitude of Kyrgyzstan where the landscape completely changed",
+            "image": "krg.jpg",
+            "progress": 1
         }
+
 
 
     ]
