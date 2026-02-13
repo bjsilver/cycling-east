@@ -32,8 +32,8 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v51():
-    print("\n--- LOADING V51 FRAMING FIX ---")
+def load_data_v52():
+    print("\n--- LOADING V52 OFFSET CAMERA ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -111,7 +111,7 @@ def load_data_v51():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v51()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v52()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -148,6 +148,7 @@ HTML_TEMPLATE = """
         .hero h1 { font-size: 6rem; line-height: 1; }
         @media (max-width: 768px) { .hero h1 { font-size: 3.5rem; } .hero-content { left: 20px; } }
         
+        /* Shrunk State - LOCKED */
         .shrunk .hero-content { top: 20px; left: 20px; transform: scale(0.5) !important; opacity: 0.8; }
         .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; }
         .shrunk .hero-gradient { opacity: 0; transform: translateX(-100%); }
@@ -236,15 +237,25 @@ HTML_TEMPLATE = """
         .chart-toggle.active { background: var(--accent); color: white; }
 
         /* STORY MODE */
-        #story-overlay { position: fixed; inset: 0; z-index: 2000; display: none; }
+        #story-overlay { position: fixed; inset: 0; z-index: 2000; display: none; pointer-events: none; }
         body.story-mode #story-overlay { display: block; }
-        .story-scroller { 
+        
+        #story-scroller { 
             position: absolute; top: 0; right: 0; width: 60%; height: 100%; 
             overflow-y: auto; padding: 0; 
             background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); 
             scrollbar-width: none; pointer-events: auto; 
         }
         
+        /* STORY CLOSE BUTTON */
+        .story-close-btn {
+            position: fixed; top: 20px; right: 80px; z-index: 6000; width: 40px; height: 40px;
+            background: #e63946; color: white; border-radius: 50%; font-size: 24px;
+            display: none; align-items: center; justify-content: center; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); pointer-events: auto;
+        }
+        body.story-mode .story-close-btn { display: flex; }
+
         /* MAGAZINE STYLE CARDS */
         .story-card { 
             background: white; margin: 0 10% 50vh 10%; padding: 30px; 
@@ -256,12 +267,12 @@ HTML_TEMPLATE = """
         .story-card p {
             font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem;
             color: #1d3557; text-align: center; margin-bottom: 20px; line-height: 1.4;
-            order: 1; /* TEXT FIRST */
+            order: 1; 
         }
         .story-card img { width: 100%; height: auto; object-fit: cover; border-radius: 4px; order: 2; }
         
         @media (max-width: 768px) {
-            .story-scroller { 
+            #story-scroller { 
                 width: 100%; height: 45%; top: auto; bottom: 0; 
                 display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden;
                 padding: 0; 
@@ -277,7 +288,6 @@ HTML_TEMPLATE = """
             .story-card.active { opacity: 1; transform: scale(1); }
         }
 
-        /* SCROLL HINT */
         .scroll-hint {
             position: fixed; bottom: 30px; left: 75%; transform: translateX(-50%);
             color: #000; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px;
@@ -295,7 +305,6 @@ HTML_TEMPLATE = """
         .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
         .bike-inner { display: inline-block; transform: scaleX(-1); }
         .bike-icon.visible { opacity: 1; }
-        
         .map-chapter-thumb { width: 30px; height: 30px; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: 0.3s; }
         .map-chapter-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .map-chapter-thumb.visible { opacity: 1; transform: translateY(0); }
@@ -310,6 +319,8 @@ HTML_TEMPLATE = """
         <div class="ctrl-btn" onclick="toggleSat()" title="Satellite View">🛰</div>
         <div class="ctrl-btn" onclick="resetView()" title="Reset View">&#8635;</div>
     </div>
+
+    <div class="story-close-btn" onclick="exitStory()">×</div>
 
     <div class="ui-layer">
         <div id="hero" class="hero"><div class="hero-content"><h1 class="italic text-slate-800 mb-4">Cycling East</h1><p class="text-sm uppercase tracking-[0.3em] text-slate-500">Leeds → Hong Kong &bull; {{ distance }} KM</p></div></div>
@@ -382,7 +393,6 @@ HTML_TEMPLATE = """
         let savedMapState = null; 
         let currentMaxProgress = 1.0;
 
-        // --- ROUTES ---
         routes.forEach((route, idx) => {
             allPoints.push(...route.coords);
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
@@ -393,14 +403,12 @@ HTML_TEMPLATE = """
             hit.on('click', (e) => { L.DomEvent.stopPropagation(e); showDetail(route); });
         });
 
-        // --- STORIES ---
         STORIES.forEach(story => {
             const html = `<div class="story-marker-wrap"><div class="story-dot"><svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div><div class="story-bubble"><img src="${story.thumb}"><span>${story.title}</span></div></div>`;
             const m = L.marker(story.location, { icon: L.divIcon({ className: 'story-div-icon', html: html }) }).addTo(map).on('click', (e) => { L.DomEvent.stopPropagation(e); startStory(story); });
             storyMarkers.push({ marker: m, dayIdx: story.closest_segment });
         });
 
-        // --- INTERACTION ---
         function shrinkHero() { document.body.classList.add('shrunk'); }
         map.on('mousedown touchstart wheel dragstart', shrinkHero);
         document.getElementById('map-container').addEventListener('touchmove', shrinkHero); 
@@ -414,39 +422,19 @@ HTML_TEMPLATE = """
             }
         });
 
-        // --- INIT ---
         window.addEventListener('load', () => {
             if(allPoints.length) {
                 let boundsPoints = allPoints;
                 if(isMobile) boundsPoints = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
                 const pad = isMobile ? [20, 20] : [window.innerWidth * 0.25, 50];
                 map.fitBounds(L.polyline(boundsPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50] });
-                
                 L.marker(allPoints[0], { icon: L.divIcon({ className: 'start-marker' }) }).addTo(map);
                 L.marker(allPoints[allPoints.length-1], { icon: L.divIcon({ className: 'end-marker' }) }).addTo(map);
-
-                setTimeout(() => {
-                    requestAnimationFrame(() => {
-                        routeLayers.forEach((l, i) => setTimeout(() => { 
-                            l.setStyle({opacity:1, color:'#fff', weight:4}); 
-                            setTimeout(()=>l.setStyle({color:'#e63946', weight:3, opacity: 0.9}), 100); 
-                        }, i*20)); 
-                    });
-                }, 800);
-                
-                routes.forEach((r, i) => {
-                    const mid = r.coords[Math.floor(r.coords.length/2)];
-                    devLabels.push(L.marker(mid, { icon: L.divIcon({ className: 'dev-label', html: i, iconAnchor: [15, 12] }) }));
-                });
+                setTimeout(() => { requestAnimationFrame(() => { routeLayers.forEach((l, i) => setTimeout(() => { l.setStyle({opacity:1, color:'#fff', weight:4}); setTimeout(()=>l.setStyle({color:'#e63946', weight:3, opacity: 0.9}), 100); }, i*20)); }); }, 800);
+                routes.forEach((r, i) => { const mid = r.coords[Math.floor(r.coords.length/2)]; devLabels.push(L.marker(mid, { icon: L.divIcon({ className: 'dev-label', html: i, iconAnchor: [15, 12] }) })); });
             }
         });
 
-        map.on('zoomend', () => {
-            if(map.getZoom() >= 6) document.getElementById('map-container').classList.add('map-zoomed-in');
-            else document.getElementById('map-container').classList.remove('map-zoomed-in');
-        });
-
-        // --- GALLERY ---
         let currStg = 0, currImg = 0;
         const galWin = document.getElementById('gallery-window');
         function openLB(sIdx, iIdx) { currStg = sIdx; currImg = iIdx; updateGallery(); galWin.classList.add('visible'); shrinkHero(); }
@@ -467,7 +455,6 @@ HTML_TEMPLATE = """
         window.addEventListener('mousemove', (e) => { if(!isDrag) return; galWin.style.left = `${il + (e.clientX - sx)}px`; galWin.style.top = `${it + (e.clientY - sy)}px`; galWin.style.right = 'auto'; });
         window.addEventListener('mouseup', () => { isDrag = false; galWin.classList.remove('dragging'); });
 
-        // --- STORY ENGINE ---
         function setupMath(p) { routeDistances = [0]; totalRouteLength = 0; for(let i=1; i<p.length; i++) { totalRouteLength += map.distance(p[i-1], p[i]); routeDistances.push(totalRouteLength); } }
         function getPtAtD(d) { for(let i=1; i<routeDistances.length; i++) { if(routeDistances[i] >= d) { const frac = (d - routeDistances[i-1]) / (routeDistances[i] - routeDistances[i-1]); return [currentStoryPoints[i-1][0] + (currentStoryPoints[i][0] - currentStoryPoints[i-1][0]) * frac, currentStoryPoints[i-1][1] + (currentStoryPoints[i][1] - currentStoryPoints[i-1][1]) * frac]; } } return currentStoryPoints[currentStoryPoints.length-1]; }
         function forwardScroll(e) { document.getElementById('story-scroller').scrollTop += e.deltaY; }
@@ -482,7 +469,6 @@ HTML_TEMPLATE = """
             const sc = document.getElementById('story-scroller'); 
             sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
             
-            // SPACER
             const spacer = document.createElement('div');
             spacer.style.height = isMobile ? '1px' : '50vh'; 
             spacer.style.width = isMobile ? '50vw' : '100%';
@@ -492,10 +478,8 @@ HTML_TEMPLATE = """
             currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
             if(currentStoryPoints.length) {
                 setupMath(currentStoryPoints);
-                // FRAMING FIX: Desktop (Left Map), Mobile (Top Map)
-                const pad = isMobile ? [50, window.innerHeight * 0.5] : [window.innerWidth * 0.6, 50];
+                const pad = isMobile ? [20, 100] : [window.innerWidth * 0.6, 50];
                 map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
-                
                 map.once('moveend', () => {
                     if(!document.body.classList.contains('story-mode')) return;
                     bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
@@ -514,7 +498,6 @@ HTML_TEMPLATE = """
             trail.style.width = isMobile ? '50vw' : '100%';
             trail.style.flexShrink = '0';
             sc.appendChild(trail);
-            
             document.getElementById('scroll-hint').style.opacity = '1';
         }
 
@@ -536,13 +519,31 @@ HTML_TEMPLATE = """
             const constrainedPct = Math.max(0, Math.min(1, scrollPct));
             const targetDist = constrainedPct * currentMaxProgress * totalRouteLength;
             
-            if(bikeMarker && totalRouteLength > 0) bikeMarker.setLatLng(getPtAtD(targetDist));
+            if(bikeMarker && totalRouteLength > 0) {
+                bikeMarker.setLatLng(getPtAtD(targetDist));
+                // OFFSET PANNING: Keep bike in "Safe Zone" (Left 40% Desktop, Top 45% Mobile)
+                const bikePx = map.latLngToContainerPoint(bikeMarker.getLatLng());
+                const w = window.innerWidth; const h = window.innerHeight;
+                let minX, maxX, minY, maxY, targetX, targetY;
+                
+                if(isMobile) {
+                    minX = 20; maxX = w - 20; minY = 50; maxY = (h * 0.45) - 50;
+                    targetX = w / 2; targetY = h * 0.225;
+                } else {
+                    minX = 50; maxX = (w * 0.4) - 50; minY = 50; maxY = h - 50;
+                    targetX = w * 0.2; targetY = h / 2;
+                }
+                
+                if (bikePx.x < minX || bikePx.x > maxX || bikePx.y < minY || bikePx.y > maxY) {
+                    const offset = [bikePx.x - targetX, bikePx.y - targetY];
+                    map.panBy(offset, {animate: true, duration: 1.0, easeLinearity: 0.1});
+                }
+            }
             
             document.querySelectorAll('.story-card').forEach((card, i) => {
                 const box = card.getBoundingClientRect();
                 const center = isMobile ? (box.left + box.width/2) : (box.top + box.height/2);
                 const screenCenter = isMobile ? (window.innerWidth/2) : (window.innerHeight/2);
-                
                 if(Math.abs(center - screenCenter) < (isMobile ? 150 : 300)) {
                     if(!card.classList.contains('active')) { card.classList.add('active'); storyChapterMarkers.forEach((m, idx) => m._icon && (idx === i ? m._icon.classList.add('active') : m._icon.classList.remove('active'))); }
                 } else card.classList.remove('active');
@@ -565,7 +566,6 @@ HTML_TEMPLATE = """
         function resetView() { 
             exitStory(); closeGallery(); closePanel(); exitJourneyMode();
             document.body.classList.remove('map-mode');
-            
             let boundsPoints = allPoints;
             if(isMobile) boundsPoints = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
             const pad = isMobile ? [20, 20] : [window.innerWidth * 0.25, 50];
@@ -609,7 +609,24 @@ HTML_TEMPLATE = """
             const ctx = document.getElementById('elChart').getContext('2d'); 
             if(activeChart) activeChart.destroy(); 
             const isEle = chartType === 'ele'; 
-            activeChart = new Chart(ctx, { type: 'line', data: { datasets: [{ data: isEle ? currentRouteData.elevation : currentRouteData.speed, borderColor: isEle ? '#e63946' : '#457b9d', backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'linear', display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8' } }, y: { title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { borderDash:[4,4] } } } } }); 
+            activeChart = new Chart(ctx, { 
+                type: 'line', 
+                data: { datasets: [{ data: isEle ? currentRouteData.elevation : currentRouteData.speed, borderColor: isEle ? '#e63946' : '#457b9d', backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 }] }, 
+                options: { 
+                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
+                    onClick: (e) => {
+                        const points = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                        if (points.length) {
+                            const index = points[0].index;
+                            const total = currentRouteData.elevation.length;
+                            const pct = index / total;
+                            const coordIdx = Math.floor(pct * currentRouteData.coords.length);
+                            map.flyTo(currentRouteData.coords[coordIdx], 14);
+                        }
+                    },
+                    scales: { x: { type: 'linear', display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8' } }, y: { title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { borderDash:[4,4] } } } 
+                } 
+            }); 
         }
     </script>
 </body>
