@@ -32,8 +32,8 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v48():
-    print("\n--- LOADING V48 DESKTOP POLISH ---")
+def load_data_v49():
+    print("\n--- LOADING V49 PERFECT STATE ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -111,7 +111,7 @@ def load_data_v48():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v48()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v49()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -148,6 +148,7 @@ HTML_TEMPLATE = """
         .hero h1 { font-size: 6rem; line-height: 1; }
         @media (max-width: 768px) { .hero h1 { font-size: 3.5rem; } .hero-content { left: 20px; } }
         
+        /* Shrunk State - LOCKED */
         .shrunk .hero-content { top: 20px; left: 20px; transform: scale(0.5) !important; opacity: 0.8; }
         .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; }
         .shrunk .hero-gradient { opacity: 0; transform: translateX(-100%); }
@@ -170,7 +171,7 @@ HTML_TEMPLATE = """
         .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
         .map-zoomed-in .story-bubble { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
 
-        /* GALLERY */
+        /* GALLERY WINDOW */
         #gallery-window {
             position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; 
             max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);
@@ -216,16 +217,17 @@ HTML_TEMPLATE = """
         }
         body.journey-mode #stage-card { transform: translateX(0); }
         
-        /* NAV BAR */
+        /* NAV BAR - FIXED: Fully hidden when inactive */
         .nav-bar { 
             position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: white; 
             display: flex; align-items: center; justify-content: center; 
-            transform: translateY(100%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; 
+            transform: translateY(100%); transition: transform 0.6s ease, opacity 0.6s ease; 
+            pointer-events: none; opacity: 0; z-index: 400; /* Default Hidden */
         }
         @media (max-width: 768px) { .nav-bar { justify-content: flex-start; overflow-x: auto; padding-left: 20px; padding-right: 60px; } .timeline { min-width: 200%; } }
         
-        /* Visible active state */
-        body.journey-mode .nav-bar { transform: translateY(0); }
+        /* ACTIVE NAV BAR */
+        body.journey-mode .nav-bar { transform: translateY(0); opacity: 1; pointer-events: auto; }
         
         .nav-close { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; color: #000; cursor: pointer; font-weight: bold; background: rgba(255,255,255,0.8); width: 40px; height: 70px; display: flex; align-items: center; justify-content: center; z-index: 500; }
         
@@ -254,14 +256,13 @@ HTML_TEMPLATE = """
         body.story-mode #story-overlay { display: block; }
         .story-scroller { 
             position: absolute; top: 0; right: 0; width: 60%; height: 100%; 
-            overflow-y: auto; padding: 0; /* Reset for spacer */
+            overflow-y: auto; padding: 0; /* JS Spacer Handles Alignment */
             background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); 
             scrollbar-width: none; pointer-events: auto; 
         }
         .story-card { background: white; margin: 0 10% 50vh 10%; padding: 25px; border-radius: 12px; opacity: 0.3; transition: 0.5s; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .story-card.active { opacity: 1; border-left: 5px solid var(--story); }
         
-        /* MOBILE STORY */
         @media (max-width: 768px) {
             .story-scroller { 
                 width: 100%; height: 45%; top: auto; bottom: 0; 
@@ -401,7 +402,7 @@ HTML_TEMPLATE = """
         // --- INTERACTION ---
         function shrinkHero() { document.body.classList.add('shrunk'); }
         map.on('mousedown touchstart wheel dragstart', shrinkHero);
-        document.getElementById('map-container').addEventListener('touchmove', shrinkHero); // FORCE MOBILE
+        document.getElementById('map-container').addEventListener('touchmove', shrinkHero); 
 
         window.addEventListener('keydown', (e) => {
             if(e.key === '`' || e.key === '~') { isDevMode = !isDevMode; devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); }
@@ -447,7 +448,7 @@ HTML_TEMPLATE = """
         // --- GALLERY ---
         let currStg = 0, currImg = 0;
         const galWin = document.getElementById('gallery-window');
-        function openLB(sIdx, iIdx) { currStg = sIdx; currImg = iIdx; updateGallery(); galWin.classList.add('visible'); document.body.classList.add('shrunk', 'map-mode'); }
+        function openLB(sIdx, iIdx) { currStg = sIdx; currImg = iIdx; updateGallery(); galWin.classList.add('visible'); shrinkHero(); }
         function closeGallery() { galWin.classList.remove('visible', 'maximized'); document.getElementById('gal-vid').pause(); }
         function updateGallery() {
             const url = STAGES[currStg].images[currImg];
@@ -480,12 +481,11 @@ HTML_TEMPLATE = """
             const sc = document.getElementById('story-scroller'); 
             sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
             
-            // SPACER: 50vw on Desktop aligns to right-half center. 
-            // Mobile handled by flex layout padding.
+            // DYNAMIC SPACER - Fixes First Image Alignment
             const spacer = document.createElement('div');
             spacer.style.height = isMobile ? '1px' : '50vh'; 
             spacer.style.width = isMobile ? '50vw' : '100%';
-            spacer.style.flexShrink = '0'; // Vital for mobile flex
+            spacer.style.flexShrink = '0'; 
             sc.appendChild(spacer);
 
             currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
@@ -506,7 +506,6 @@ HTML_TEMPLATE = """
             }
             s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<img src="${c.image}"><p>${c.text}</p>`; sc.appendChild(d); });
             
-            // Trailing Spacer
             const trail = document.createElement('div'); 
             trail.style.height = isMobile ? '1px' : '50vh'; 
             trail.style.width = isMobile ? '50vw' : '100%';
@@ -562,7 +561,7 @@ HTML_TEMPLATE = """
 
         function resetView() { 
             exitStory(); closeGallery(); closePanel(); exitJourneyMode();
-            // document.body.classList.remove('shrunk'); // REMOVED: Keep title shrunk
+            // document.body.classList.remove('shrunk'); // REMOVED - KEEP SHRUNK
             document.body.classList.remove('map-mode');
             
             let boundsPoints = allPoints;
