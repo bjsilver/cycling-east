@@ -7,11 +7,12 @@ app = Flask(__name__)
 # --- CONFIGURATION ---
 DATA_FILE = "trip_data.json"
 STAGES_DIR = os.path.join("data", "stages")
-IMG_BASE_URL = "/static/images"
+
+IMG_BASE_URL = "https://cdn.jsdelivr.net/gh/bjsilver/cycling-east@master/static/images" 
 # ---------------------
 
 def load_data_fast():
-    print("--- LOADING V17 DATA ---")
+    print("--- LOADING V18 DATA ---")
     if not os.path.exists(DATA_FILE): return [], [], 0
     
     with open(DATA_FILE, 'r') as f:
@@ -35,10 +36,15 @@ def load_data_fast():
                     stage_folder = f"{i+1:02d}"
                     local_path = os.path.join("static", "images", stage_folder)
                     media_urls = []
+                    
+                    # Scan local folder to find filenames, but build URL based on IMG_BASE_URL
                     if os.path.exists(local_path):
                         for f_name in sorted(os.listdir(local_path)):
                             if f_name.lower().endswith(('jpg','jpeg','png','webp', 'mp4', 'mov', 'webm')):
-                                media_urls.append(f"{IMG_BASE_URL}/{stage_folder}/{f_name}")
+                                if IMG_BASE_URL.startswith("http"):
+                                    media_urls.append(f"{IMG_BASE_URL}/{stage_folder}/{f_name}")
+                                else:
+                                    media_urls.append(f"{IMG_BASE_URL}/{stage_folder}/{f_name}")
                     data['images'] = media_urls
                     stages.append(data)
             except Exception: pass
@@ -75,7 +81,7 @@ HTML_TEMPLATE = """
         .ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         .interactive { pointer-events: auto; }
 
-        /* --- HERO SECTION --- */
+        /* HERO */
         .hero { 
             position: fixed; inset: 0; pointer-events: none; z-index: 20;
             user-select: none; transition: 1s cubic-bezier(0.16, 1, 0.3, 1);
@@ -91,19 +97,19 @@ HTML_TEMPLATE = """
             pointer-events: none; z-index: 5; transition: 1s;
         }
 
-        /* --- MOBILE RESPONSIVE HERO --- */
+        /* Mobile Hero */
         @media (max-width: 768px) {
             .hero-content { left: 20px; right: 20px; top: 40%; text-align: center; transform: translateY(-50%); }
             .hero h1 { font-size: 3.5rem; margin-bottom: 1rem; }
             .hero-gradient { width: 100%; height: 60%; background: linear-gradient(to bottom, rgba(241,245,249,0.95), transparent); }
         }
 
-        /* --- STATES --- */
+        /* Hero States */
         body.map-mode .hero-content { top: 30px; left: 30px; transform: scale(0.6); opacity: 0.8; }
         body.map-mode .hero-gradient { opacity: 0; }
         body.journey-mode .hero, body.journey-mode .hero-gradient { opacity: 0; pointer-events: none; }
 
-        /* --- START BUTTON --- */
+        /* Start Button */
         .start-btn-container {
             position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
             z-index: 30; pointer-events: auto; transition: 0.5s;
@@ -116,7 +122,7 @@ HTML_TEMPLATE = """
         }
         .start-btn:hover { background: var(--text); color: white; transform: translateY(-3px); }
 
-        /* --- STAGE CARD (Top Left on Desktop, Top Sheet on Mobile) --- */
+        /* Stage Card */
         #stage-card {
             position: absolute; top: 30px; left: 30px; width: 400px;
             background: var(--card-bg); backdrop-filter: blur(20px);
@@ -125,17 +131,14 @@ HTML_TEMPLATE = """
             transform: translateX(-150%); transition: transform 0.6s cubic-bezier(0.2, 1, 0.3, 1);
         }
         @media (max-width: 768px) {
-            #stage-card { 
-                top: 10px; left: 10px; right: 10px; width: auto; 
-                transform: translateY(-150%); padding: 15px;
-            }
+            #stage-card { top: 10px; left: 10px; right: 10px; width: auto; transform: translateY(-150%); padding: 15px; }
             #stage-card h2 { font-size: 1.5rem; }
             #stage-card p { font-size: 0.8rem; }
         }
         body.journey-mode #stage-card { transform: translateX(0); }
         @media (max-width: 768px) { body.journey-mode #stage-card { transform: translateY(0); } }
 
-        /* --- DETAIL PANEL (Bottom Right on Desktop, Bottom Sheet on Mobile) --- */
+        /* Detail Panel */
         #detail-panel {
             position: absolute; bottom: 90px; right: 30px; width: 400px;
             background: var(--card-bg); backdrop-filter: blur(20px);
@@ -143,14 +146,10 @@ HTML_TEMPLATE = """
             transform: translateY(150%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1);
             box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 40;
         }
-        @media (max-width: 768px) {
-            #detail-panel { 
-                bottom: 80px; left: 10px; right: 10px; width: auto; 
-            }
-        }
+        @media (max-width: 768px) { #detail-panel { bottom: 80px; left: 10px; right: 10px; width: auto; } }
         #detail-panel.open { transform: translateY(0); }
 
-        /* --- TIMELINE --- */
+        /* Nav Bar */
         .nav-bar {
             position: absolute; bottom: 0; left: 0; width: 100%; height: 70px;
             background: white; border-top: 1px solid #eee;
@@ -173,29 +172,43 @@ HTML_TEMPLATE = """
         }
         @media (min-width: 768px) { .nav-dot:hover .dot-tooltip { opacity: 1; bottom: 35px; } }
 
-        /* --- THUMBNAILS & LIGHTBOX --- */
+        /* Thumbnails */
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
         .thumb-wrap { flex: 0 0 100px; height: 70px; border-radius: 6px; overflow: hidden; cursor: pointer; position: relative; }
         .thumb-wrap img, .thumb-wrap video { width: 100%; height: 100%; object-fit: cover; }
         .play-icon { position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
         .play-icon:after { content: '▶'; color: white; }
 
+        /* Lightbox */
         #lightbox { position: fixed; inset: 0; z-index: 5000; background: rgba(255,255,255,0.98); display: none; align-items: center; justify-content: center; }
         #lightbox img, #lightbox video { max-height: 85vh; max-width: 90vw; box-shadow: 0 20px 50px rgba(0,0,0,0.2); display: none; }
         .lb-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 20px; font-size: 30px; cursor: pointer; color: #333; user-select: none; }
         .lb-prev { left: 10px; } .lb-next { right: 10px; }
         .lb-close { position: absolute; top: 20px; right: 20px; font-size: 40px; cursor: pointer; }
 
+        /* Control Buttons (Top Right) */
+        .ctrl-group { position: fixed; top: 20px; right: 20px; z-index: 500; display: flex; gap: 10px; }
+        .ctrl-btn { 
+            width: 40px; height: 40px; background: white; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; cursor: pointer; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.2s; font-size: 18px; color: var(--text);
+        }
+        .ctrl-btn:hover { transform: scale(1.1); }
+        .ctrl-btn.active { background: var(--text); color: white; }
+
         .chart-toggle { cursor: pointer; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #eee; color: #666; }
         .chart-toggle.active { background: var(--accent); color: white; }
-        .home-btn { position: fixed; top: 20px; right: 20px; z-index: 500; width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
 
     <div id="map-container"><div id="map"></div></div>
     <div class="hero-gradient"></div>
-    <div class="home-btn interactive" onclick="resetView()">&#8635;</div>
+
+    <div class="ctrl-group interactive">
+        <div class="ctrl-btn" onclick="toggleSat()" title="Satellite View">🛰</div>
+        <div class="ctrl-btn" onclick="resetView()" title="Reset View">&#8635;</div>
+    </div>
 
     <div class="ui-layer">
         <div id="hero" class="hero">
@@ -254,20 +267,36 @@ HTML_TEMPLATE = """
         const STAGES = {{ stages|tojson }};
         
         var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([50, 0], 4);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+        
+        // --- MAP LAYERS ---
+        const voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+        voyager.addTo(map);
+
+        let isSat = false;
+        function toggleSat() {
+            isSat = !isSat;
+            if(isSat) { 
+                map.removeLayer(voyager); 
+                map.addLayer(satellite); 
+                document.querySelector('.ctrl-btn').classList.add('active');
+            } else { 
+                map.removeLayer(satellite); 
+                map.addLayer(voyager); 
+                document.querySelector('.ctrl-btn').classList.remove('active');
+            }
+        }
 
         let activeChart = null, currentRouteData = null, chartType = 'ele', routeLayers = [];
 
         // --- INTRO ANIMATION ---
         function playIntroAnimation() {
-            // Wait a moment for map tiles to load
             setTimeout(() => {
                 routeLayers.forEach((layer, idx) => {
                     setTimeout(() => {
-                        // Flash White then fade to Red
                         layer.setStyle({ opacity: 1, color: '#fff', weight: 4 });
                         setTimeout(() => layer.setStyle({ color: '#e63946', weight: 3 }), 150);
-                    }, idx * 40); // 40ms delay between each segment
+                    }, idx * 40);
                 });
             }, 500);
         }
@@ -276,12 +305,8 @@ HTML_TEMPLATE = """
         let allPoints = [];
         routes.forEach(route => {
             allPoints.push(...route.coords);
-            
-            // Visual Line (Initially Invisible)
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
             routeLayers.push(visual);
-
-            // Hit Box (Invisible Click Target)
             const hit = L.polyline(route.coords, { color: 'transparent', weight: 25, opacity: 0, zIndexOffset: 1000 }).addTo(map);
             
             hit.on('mouseover', () => { visual.setStyle({ color: '#1d3557', weight: 5, opacity: 1 }); hit.bindTooltip(`DAY ${route.day}`, { sticky: true, className: 'custom-tooltip' }).openTooltip(); });
@@ -289,16 +314,13 @@ HTML_TEMPLATE = """
             hit.on('click', (e) => { showDetail(route); L.DomEvent.stopPropagation(e); });
         });
 
-        // Trigger animation on load
         window.addEventListener('load', () => {
             if(allPoints.length) {
-                // Adjust zoom padding for mobile vs desktop
                 const isMobile = window.innerWidth < 768;
-                const pads = isMobile ? [20, 20] : [50, 50];
-                const topLeft = isMobile ? [0, 0] : [window.innerWidth * 0.4, 0];
-                
                 map.fitBounds(L.polyline(allPoints).getBounds(), { 
-                    paddingTopLeft: topLeft, paddingBottomRight: pads, duration: 0 
+                    paddingTopLeft: isMobile ? [0, 0] : [window.innerWidth * 0.4, 0], 
+                    paddingBottomRight: isMobile ? [20, 20] : [50, 50], 
+                    duration: 0 
                 });
                 playIntroAnimation();
             }
@@ -317,6 +339,7 @@ HTML_TEMPLATE = """
                     dot.className = 'nav-dot';
                     dot.style.left = `${(i / (STAGES.length - 1)) * 100}%`;
                     dot.onclick = () => setStage(i);
+                    dot.innerHTML = `<div class="dot-tooltip">${s.title}</div>`; // FIXED: Added Tooltip back
                     track.appendChild(dot);
                 });
             }
@@ -341,10 +364,7 @@ HTML_TEMPLATE = """
 
             let pts = [];
             for(let i=stage.start_index; i<=stage.end_index; i++) { if(routes[i]) pts.push(...routes[i].coords); }
-            if(pts.length) {
-                const pad = window.innerWidth < 768 ? [20, 100] : [100, 100];
-                map.flyToBounds(L.polyline(pts).getBounds(), { padding: pad, duration: 2 });
-            }
+            if(pts.length) map.flyToBounds(L.polyline(pts).getBounds(), { padding: window.innerWidth < 768 ? [20, 100] : [100, 100], duration: 2 });
         }
 
         function showDetail(data) {
@@ -364,10 +384,19 @@ HTML_TEMPLATE = """
             const ctx = document.getElementById('elChart').getContext('2d');
             if(activeChart) activeChart.destroy();
             const isEle = chartType === 'ele';
+            
+            // FIXED: Added Axis Labels
             activeChart = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: [{ data: isEle ? currentRouteData.elevation : currentRouteData.speed, borderColor: isEle ? '#e63946' : '#457b9d', backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'linear', display: false }, y: { ticks: { color: '#888', font: {size:9} }, grid: { borderDash:[4,4] } } } }
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        x: { type: 'linear', display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8' } }, 
+                        y: { title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { borderDash:[4,4] } } 
+                    } 
+                }
             });
         }
 
