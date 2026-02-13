@@ -241,7 +241,7 @@ HTML_TEMPLATE = """
                 <div class="flex gap-4 mono text-[10px] text-slate-500"><span><b id="p-dist"></b> KM</span><span><b id="p-time"></b> RIDING</span></div>
                 <div class="flex gap-1"><span id="btn-ele" class="chart-toggle active" onclick="switchChart('ele')">ELEV</span><span id="btn-speed" class="chart-toggle" onclick="switchChart('speed')">SPEED</span></div>
             </div>
-            <div class="h-24 w-full"><canvas id="elChart"></canvas></div>
+            <div class="h-24 md:h-40 w-full"><canvas id="elChart"></canvas></div>
         </div>
     </div>
 
