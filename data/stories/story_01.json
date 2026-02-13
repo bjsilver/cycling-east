@@ -1,0 +1,51 @@
+{
+    "id": "pamir_highway",
+    "title": "The Pamir Highway",
+    "location": [38.175936, 71.485507], 
+    "route_segment_ids": [94,95,97,98,99,100,101,102,103,104,105,106],
+    "img_prefix":"https://cdn.jsdelivr.net/gh/bjsilver/cycling-east@master/static/story_images/pamir_highway/",
+    "chapters": [
+        {
+            "text": "Roads weren't too bad at first!",
+            "image": "dushanbe.jpg",
+            "progress": 0.05
+        },
+        {
+            "text": "Delicious food at hot spring hotel",
+            "image": "delicious.jpg",
+            "progress": 0.08
+        },
+        {
+            "text": "Roads deteriorated somewhat",
+            "image": "somewhat.jpg",
+            "progress": 0.11
+        },
+                {
+            "text": "resting during the afternoon heat",
+            "image": "resting.jpg",
+            "progress": 0.14
+        },
+                        {
+            "text": "the Saghirdasht pass",
+            "image": "pass.jpg",
+            "progress": 0.15
+        },
+                    {
+            "text": "food poisoning at an idyllic camp spot",
+            "image": "poison.jpg",
+            "progress": 0.17
+        },
+        {
+            "text": "Over the other side of the pass",
+            "image": "other.jpg",
+            "progress": 0.2
+        },
+                {
+            "text": "along the afghan border",
+            "image": "afghan.jpg",
+            "progress": 0.22
+        }
+
+
+    ]
+}
