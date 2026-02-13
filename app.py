@@ -32,8 +32,8 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v47():
-    print("\n--- LOADING V47 POLISHED ---")
+def load_data_v48():
+    print("\n--- LOADING V48 DESKTOP POLISH ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -111,7 +111,7 @@ def load_data_v47():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v47()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v48()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -170,7 +170,7 @@ HTML_TEMPLATE = """
         .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
         .map-zoomed-in .story-bubble { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
 
-        /* GALLERY WINDOW */
+        /* GALLERY */
         #gallery-window {
             position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; 
             max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);
@@ -216,20 +216,28 @@ HTML_TEMPLATE = """
         }
         body.journey-mode #stage-card { transform: translateX(0); }
         
+        /* NAV BAR */
         .nav-bar { 
             position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: white; 
             display: flex; align-items: center; justify-content: center; 
             transform: translateY(100%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; 
         }
         @media (max-width: 768px) { .nav-bar { justify-content: flex-start; overflow-x: auto; padding-left: 20px; padding-right: 60px; } .timeline { min-width: 200%; } }
+        
+        /* Visible active state */
         body.journey-mode .nav-bar { transform: translateY(0); }
+        
         .nav-close { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; color: #000; cursor: pointer; font-weight: bold; background: rgba(255,255,255,0.8); width: 40px; height: 70px; display: flex; align-items: center; justify-content: center; z-index: 500; }
         
         .timeline { position: relative; width: 80%; height: 4px; background: #e2e8f0; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; }
         .nav-dot.active { background: var(--accent); transform: scale(1.3); }
-        .dot-tooltip { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; border-radius: 4px; opacity: 1; white-space: nowrap; pointer-events: none; }
+        .dot-tooltip { 
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); 
+            background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; 
+            border-radius: 4px; opacity: 1; white-space: nowrap; pointer-events: none;
+        }
         
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
         .thumb-wrap { flex: 0 0 100px; height: 70px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; }
@@ -246,18 +254,19 @@ HTML_TEMPLATE = """
         body.story-mode #story-overlay { display: block; }
         .story-scroller { 
             position: absolute; top: 0; right: 0; width: 60%; height: 100%; 
-            overflow-y: auto; padding: 50vh 0 0 0; 
+            overflow-y: auto; padding: 0; /* Reset for spacer */
             background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); 
             scrollbar-width: none; pointer-events: auto; 
         }
         .story-card { background: white; margin: 0 10% 50vh 10%; padding: 25px; border-radius: 12px; opacity: 0.3; transition: 0.5s; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .story-card.active { opacity: 1; border-left: 5px solid var(--story); }
         
+        /* MOBILE STORY */
         @media (max-width: 768px) {
             .story-scroller { 
                 width: 100%; height: 45%; top: auto; bottom: 0; 
                 display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden;
-                padding: 0; /* Padding handled by spacers */
+                padding: 0; 
                 background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9));
                 align-items: center; scroll-snap-type: x mandatory;
             }
@@ -268,13 +277,14 @@ HTML_TEMPLATE = """
             .story-card.active { opacity: 1; transform: scale(1.05); }
         }
 
-        /* SCROLL HINT (STYLISH) */
+        /* SCROLL HINT */
         .scroll-hint {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            color: #000; font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 2px;
+            position: fixed; bottom: 30px; left: 75%; transform: translateX(-50%);
+            color: #000; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px;
+            font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.8);
             animation: bounce 2s infinite; opacity: 0; transition: opacity 0.5s; z-index: 3000; pointer-events: none;
         }
-        .scroll-hint::after { content: 'SCROLL ↓'; display: block; text-align: center; }
+        .scroll-hint::after { content: 'SCROLL ↓'; }
         @media (max-width: 768px) {
             .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; }
             .scroll-hint::after { content: 'SWIPE →'; }
@@ -388,7 +398,10 @@ HTML_TEMPLATE = """
             storyMarkers.push({ marker: m, dayIdx: story.closest_segment });
         });
 
-        map.on('mousedown touchstart wheel', () => document.body.classList.add('shrunk'));
+        // --- INTERACTION ---
+        function shrinkHero() { document.body.classList.add('shrunk'); }
+        map.on('mousedown touchstart wheel dragstart', shrinkHero);
+        document.getElementById('map-container').addEventListener('touchmove', shrinkHero); // FORCE MOBILE
 
         window.addEventListener('keydown', (e) => {
             if(e.key === '`' || e.key === '~') { isDevMode = !isDevMode; devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); }
@@ -458,7 +471,7 @@ HTML_TEMPLATE = """
         function forwardScroll(e) { document.getElementById('story-scroller').scrollTop += e.deltaY; }
 
         function startStory(s) {
-            document.body.classList.add('story-mode', 'shrunk'); closePanel();
+            shrinkHero(); document.body.classList.add('story-mode'); closePanel();
             savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
             currentMaxProgress = s.max_progress || 1.0;
             if(bikeMarker) map.removeLayer(bikeMarker); bikeMarker = null;
@@ -467,10 +480,12 @@ HTML_TEMPLATE = """
             const sc = document.getElementById('story-scroller'); 
             sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
             
-            // SPACER LOGIC (Centers first card)
+            // SPACER: 50vw on Desktop aligns to right-half center. 
+            // Mobile handled by flex layout padding.
             const spacer = document.createElement('div');
-            spacer.style.minWidth = isMobile ? '50vw' : '0';
-            spacer.style.height = isMobile ? '10px' : '50vh'; 
+            spacer.style.height = isMobile ? '1px' : '50vh'; 
+            spacer.style.width = isMobile ? '50vw' : '100%';
+            spacer.style.flexShrink = '0'; // Vital for mobile flex
             sc.appendChild(spacer);
 
             currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
@@ -491,8 +506,13 @@ HTML_TEMPLATE = """
             }
             s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<img src="${c.image}"><p>${c.text}</p>`; sc.appendChild(d); });
             
-            // TRAILING SPACER
-            const trail = document.createElement('div'); trail.style.minWidth = isMobile ? '50vw' : '0'; sc.appendChild(trail);
+            // Trailing Spacer
+            const trail = document.createElement('div'); 
+            trail.style.height = isMobile ? '1px' : '50vh'; 
+            trail.style.width = isMobile ? '50vw' : '100%';
+            trail.style.flexShrink = '0';
+            sc.appendChild(trail);
+            
             document.getElementById('scroll-hint').style.opacity = '1';
         }
 
@@ -504,7 +524,6 @@ HTML_TEMPLATE = """
             if(sc.scrollLeft > 10 || sc.scrollTop > 10) document.getElementById('scroll-hint').style.opacity = '0';
 
             let scrollPct = 0;
-            // ROBUST MOBILE CALCULATION
             if(isMobile) {
                 scrollPct = sc.scrollLeft / (sc.scrollWidth - sc.clientWidth);
             } else {
@@ -543,7 +562,9 @@ HTML_TEMPLATE = """
 
         function resetView() { 
             exitStory(); closeGallery(); closePanel(); exitJourneyMode();
-            document.body.classList.remove('shrunk', 'map-mode');
+            // document.body.classList.remove('shrunk'); // REMOVED: Keep title shrunk
+            document.body.classList.remove('map-mode');
+            
             let boundsPoints = allPoints;
             if(isMobile) boundsPoints = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
             const pad = isMobile ? [20, 20] : [window.innerWidth * 0.25, 50];
@@ -551,7 +572,8 @@ HTML_TEMPLATE = """
         }
         
         function startJourney() { 
-            document.body.classList.add('journey-mode', 'shrunk'); 
+            shrinkHero();
+            document.body.classList.add('journey-mode'); 
             closePanel();
             document.getElementById('chapter-btn-wrap').style.display = 'none';
             const track = document.getElementById('timeline-track'); 
