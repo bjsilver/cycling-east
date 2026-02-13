@@ -32,8 +32,8 @@ def simplify_route(coords, threshold_meters=50):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v43():
-    print("\n--- LOADING V43 SMART INTERACTION ---")
+def load_data_v44():
+    print("\n--- LOADING V44 LOGIC FIXES ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -82,6 +82,7 @@ def load_data_v43():
                             elif 'lat' in s: s['location'] = [s['lat'], s['lon']]
                             else: continue
                         
+                        # Closest Segment Logic
                         min_dist = float('inf')
                         closest_idx = 0
                         for idx, r in enumerate(routes):
@@ -96,19 +97,34 @@ def load_data_v43():
                             if 'route_segment_id' in s: s['route_segment_ids'] = [s['route_segment_id']]
                             else: s['route_segment_ids'] = []
                         
+                        # Prefix Logic + Thumbnail Fix
                         prefix = s.get('img_prefix', '')
+                        max_prog = 0
+                        
                         if 'chapters' in s:
                             for chap in s['chapters']:
+                                # Update max progress for bike logic
+                                if 'progress' in chap and chap['progress'] > max_prog:
+                                    max_prog = chap['progress']
+                                    
                                 if prefix and not chap['image'].startswith('http'):
                                     chap['image'] = prefix + chap['image']
                         
-                        s['thumb'] = s['chapters'][0].get('image', '') if 'chapters' in s and s['chapters'] else ""
+                        s['max_progress'] = max_prog if max_prog > 0 else 1.0
+
+                        # Thumbnail Extraction (Now using the prefixed path)
+                        if 'chapters' in s and s['chapters']:
+                            s['thumb'] = s['chapters'][0]['image']
+                        else:
+                            s['thumb'] = ""
+                        
                         stories.append(s)
-                except: pass
+                except Exception as e:
+                    print(f"Error loading {sf}: {e}")
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v43()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v44()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -127,7 +143,6 @@ HTML_TEMPLATE = """
         h1, h2 { font-family: 'Playfair Display', serif; }
         .mono { font-family: 'Space Mono', monospace; }
 
-        /* MAP */
         #map-container { position: fixed; inset: 0; z-index: 0; }
         #map { width: 100%; height: 100%; outline: none; background: #aad3df; }
         .ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 100; transition: opacity 0.5s; }
@@ -141,7 +156,6 @@ HTML_TEMPLATE = """
         .hero { position: fixed; inset: 0; pointer-events: none; z-index: 200; user-select: none; transition: 1s cubic-bezier(0.16, 1, 0.3, 1); }
         .hero-content { position: absolute; top: 50%; left: 5vw; transform: translateY(-50%); transition: inherit; transform-origin: top left; }
         .hero h1 { font-size: 6rem; line-height: 1; }
-        
         .shrunk .hero-content { top: 20px; left: 20px; transform: scale(0.5) !important; opacity: 0.8; }
         .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; }
         .shrunk .hero-gradient { opacity: 0; transform: translateX(-100%); }
@@ -165,7 +179,7 @@ HTML_TEMPLATE = """
         .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
         .map-zoomed-in .story-bubble { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
 
-        /* GALLERY WINDOW */
+        /* GALLERY */
         #gallery-window {
             position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; 
             max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);
@@ -187,14 +201,8 @@ HTML_TEMPLATE = """
         .gal-touch-left::after { content: '❮'; } .gal-touch-right::after { content: '❯'; }
         .gal-expand-btn { position: absolute; bottom: 15px; right: 15px; width: 30px; height: 30px; background: rgba(0,0,0,0.5); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; z-index: 200; }
 
-        /* DEV MODE */
-        .dev-label { 
-            background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; 
-            font-family: 'Space Mono', monospace; font-size: 14px; font-weight: bold; 
-            border: 1px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: nowrap;
-        }
-
         /* UI ELEMENTS */
+        .dev-label { background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: bold; border: 1px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: nowrap; }
         .ctrl-group { position: fixed; top: 20px; right: 20px; z-index: 6000; display: flex; gap: 10px; pointer-events: auto; }
         .ctrl-btn { width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 18px; color: var(--text); }
         
@@ -205,16 +213,20 @@ HTML_TEMPLATE = """
         body.journey-mode #stage-card { transform: translateX(0); }
         .nav-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: white; display: flex; align-items: center; justify-content: center; transform: translateY(100%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
         body.journey-mode .nav-bar { transform: translateY(0); }
-        
-        /* BLACK CLOSE BUTTON */
         .nav-close { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; color: #000; cursor: pointer; font-weight: bold; }
-        
         .timeline { position: relative; width: 80%; height: 4px; background: #e2e8f0; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; }
         .nav-dot.active { background: var(--accent); transform: scale(1.3); }
-        .dot-tooltip { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; border-radius: 4px; opacity: 0; transition: 0.2s; white-space: nowrap; }
-        .nav-dot:hover .dot-tooltip { opacity: 1; bottom: 35px; }
+        
+        /* FIXED: Tooltips always visible */
+        .dot-tooltip { 
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); 
+            background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; 
+            border-radius: 4px; opacity: 1; /* Always ON */
+            white-space: nowrap; pointer-events: none;
+        }
+        
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
         .thumb-wrap { flex: 0 0 100px; height: 70px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
@@ -311,6 +323,7 @@ HTML_TEMPLATE = """
         let bikeMarker = null, storyChapterMarkers = [], currentStoryPoints = [], routeDistances = [], totalRouteLength = 0;
         let allPoints = [], devLabels = [], storyMarkers = [], isDevMode = false;
         let savedMapState = null; 
+        let currentMaxProgress = 1.0; // Store specific story max progress
 
         // --- ROUTES ---
         routes.forEach((route, idx) => {
@@ -330,8 +343,7 @@ HTML_TEMPLATE = """
             storyMarkers.push({ marker: m, dayIdx: story.closest_segment });
         });
 
-        // --- INTERACTION LOGIC (SMART SHRINK) ---
-        // Only shrink when user actively moves map or clicks buttons
+        // --- INTERACTION (SHRINK) ---
         map.on('mousedown touchstart wheel', () => document.body.classList.add('shrunk'));
 
         // --- DEV & KEYS ---
@@ -344,7 +356,7 @@ HTML_TEMPLATE = """
             }
         });
 
-        // --- INITIAL RENDER ---
+        // --- INIT ---
         window.addEventListener('load', () => {
             if(allPoints.length) {
                 map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: [window.innerWidth * 0.25, 0], paddingBottomRight: [50, 50] });
@@ -399,6 +411,7 @@ HTML_TEMPLATE = """
         function startStory(s) {
             document.body.classList.add('story-mode', 'shrunk'); closePanel();
             savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
+            currentMaxProgress = s.max_progress || 1.0; // USE MAX PROGRESS
             if(bikeMarker) map.removeLayer(bikeMarker); bikeMarker = null;
             storyChapterMarkers.forEach(m => map.removeLayer(m)); storyChapterMarkers = [];
             const sc = document.getElementById('story-scroller'); sc.innerHTML = ''; sc.scrollTop = 0;
@@ -423,8 +436,14 @@ HTML_TEMPLATE = """
         function checkStoryScroll() {
             const sc = document.getElementById('story-scroller');
             if((sc.scrollTop + sc.clientHeight) > (sc.scrollHeight - 50)) { exitStory(); return; }
-            const pct = sc.scrollTop / (sc.scrollHeight - sc.clientHeight - 200);
-            if(bikeMarker && totalRouteLength > 0) bikeMarker.setLatLng(getPtAtD(Math.max(0, Math.min(1, pct)) * totalRouteLength));
+            
+            // FIXED MATH: Scroll % maps to Story Max Progress
+            const scrollPct = sc.scrollTop / (sc.scrollHeight - sc.clientHeight - 200);
+            const constrainedPct = Math.max(0, Math.min(1, scrollPct));
+            const targetDist = constrainedPct * currentMaxProgress * totalRouteLength; // Apply Max Progress
+            
+            if(bikeMarker && totalRouteLength > 0) bikeMarker.setLatLng(getPtAtD(targetDist));
+            
             document.querySelectorAll('.story-card').forEach((card, i) => {
                 const box = card.getBoundingClientRect();
                 if(Math.abs((box.top + box.height/2) - (window.innerHeight/2)) < 300) {
@@ -435,22 +454,20 @@ HTML_TEMPLATE = """
 
         function exitStory() {
             if(!document.body.classList.contains('story-mode')) return; 
-            document.body.classList.remove('story-mode', 'shrunk');
+            document.body.classList.remove('story-mode'); // Keep shrunk state
             if(bikeMarker) map.removeLayer(bikeMarker); bikeMarker = null;
             storyChapterMarkers.forEach(m => map.removeLayer(m));
             if(savedMapState) map.flyTo(savedMapState.center, savedMapState.zoom, { duration: 1.5 });
         }
 
-        // --- NEW: Exit ONLY Stage Mode (Keep Zoom) ---
         function exitJourneyMode() {
             document.body.classList.remove('journey-mode');
             document.getElementById('chapter-btn-wrap').style.display = 'block'; 
         }
 
-        // --- ORIGINAL RESET (Full Reset) ---
         function resetView() { 
             exitStory(); closeGallery(); closePanel(); exitJourneyMode();
-            document.body.classList.remove('shrunk', 'map-mode'); 
+            document.body.classList.remove('shrunk', 'map-mode'); // ONLY HERE remove shrunk
             map.fitBounds(L.polyline(allPoints).getBounds(), { paddingTopLeft: [window.innerWidth * 0.25, 0], paddingBottomRight: [50, 50], duration: 1.5 }); 
         }
         
@@ -459,7 +476,16 @@ HTML_TEMPLATE = """
             closePanel();
             document.getElementById('chapter-btn-wrap').style.display = 'none';
             const track = document.getElementById('timeline-track'); 
-            if(track.querySelectorAll('.nav-dot').length === 0) { STAGES.forEach((s, i) => { const d = document.createElement('div'); d.className = 'nav-dot'; d.style.left = `${(i / (STAGES.length - 1)) * 100}%`; d.onclick = () => setStage(i); d.innerHTML = `<div class="dot-tooltip">${s.title}</div>`; track.appendChild(d); }); } setStage(0); 
+            // FIXED: Just show UI, don't auto-zoom
+            if(track.querySelectorAll('.nav-dot').length === 0) { 
+                STAGES.forEach((s, i) => { 
+                    const d = document.createElement('div'); d.className = 'nav-dot'; 
+                    d.style.left = `${(i / (STAGES.length - 1)) * 100}%`; 
+                    d.onclick = () => setStage(i); 
+                    d.innerHTML = `<div class="dot-tooltip">${s.title}</div>`; 
+                    track.appendChild(d); 
+                }); 
+            } 
         }
 
         function setStage(index) {
