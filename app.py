@@ -32,8 +32,8 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v49():
-    print("\n--- LOADING V49 PERFECT STATE ---")
+def load_data_v51():
+    print("\n--- LOADING V51 FRAMING FIX ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -111,7 +111,7 @@ def load_data_v49():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v49()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v51()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -123,11 +123,11 @@ HTML_TEMPLATE = """
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Inter:wght@300;400;600&family=Space+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;600&family=Space+Mono&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #e63946; --speed: #457b9d; --text: #1d3557; --story: #475569; --card-bg: rgba(255, 255, 255, 0.95); }
         body { background: #f1f5f9; color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; touch-action: none; }
-        h1, h2 { font-family: 'Playfair Display', serif; }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
         .mono { font-family: 'Space Mono', monospace; }
 
         .hero, .ui-layer, #gallery-window, #stage-card { will-change: transform, opacity; transform: translate3d(0,0,0); }
@@ -148,7 +148,6 @@ HTML_TEMPLATE = """
         .hero h1 { font-size: 6rem; line-height: 1; }
         @media (max-width: 768px) { .hero h1 { font-size: 3.5rem; } .hero-content { left: 20px; } }
         
-        /* Shrunk State - LOCKED */
         .shrunk .hero-content { top: 20px; left: 20px; transform: scale(0.5) !important; opacity: 0.8; }
         .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; }
         .shrunk .hero-gradient { opacity: 0; transform: translateX(-100%); }
@@ -206,40 +205,25 @@ HTML_TEMPLATE = """
         .start-btn-container { position: absolute; bottom: 30px; left: 30px; transform: none; z-index: 300; pointer-events: auto; }
         .start-btn { background: white; color: var(--text); border: 1px solid var(--text); padding: 15px 40px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 3px; cursor: pointer; }
         
-        #stage-card { 
-            position: absolute; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; 
-            background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; 
-            transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; 
-        }
-        @media (max-width: 768px) {
-            #stage-card { top: auto; bottom: 80px; left: 10px; right: 10px; width: auto; transform: translateY(150%); }
-            body.journey-mode #stage-card { transform: translateY(0); }
-        }
+        #stage-card { position: absolute; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
         body.journey-mode #stage-card { transform: translateX(0); }
         
-        /* NAV BAR - FIXED: Fully hidden when inactive */
+        /* NAV BAR */
         .nav-bar { 
             position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; background: white; 
             display: flex; align-items: center; justify-content: center; 
             transform: translateY(100%); transition: transform 0.6s ease, opacity 0.6s ease; 
-            pointer-events: none; opacity: 0; z-index: 400; /* Default Hidden */
+            pointer-events: none; opacity: 0; z-index: 400;
         }
         @media (max-width: 768px) { .nav-bar { justify-content: flex-start; overflow-x: auto; padding-left: 20px; padding-right: 60px; } .timeline { min-width: 200%; } }
-        
-        /* ACTIVE NAV BAR */
         body.journey-mode .nav-bar { transform: translateY(0); opacity: 1; pointer-events: auto; }
-        
         .nav-close { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; color: #000; cursor: pointer; font-weight: bold; background: rgba(255,255,255,0.8); width: 40px; height: 70px; display: flex; align-items: center; justify-content: center; z-index: 500; }
         
         .timeline { position: relative; width: 80%; height: 4px; background: #e2e8f0; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; }
         .nav-dot.active { background: var(--accent); transform: scale(1.3); }
-        .dot-tooltip { 
-            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); 
-            background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; 
-            border-radius: 4px; opacity: 1; white-space: nowrap; pointer-events: none;
-        }
+        .dot-tooltip { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 4px 10px; font-size: 11px; border-radius: 4px; opacity: 1; white-space: nowrap; pointer-events: none; }
         
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
         .thumb-wrap { flex: 0 0 100px; height: 70px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; }
@@ -256,12 +240,25 @@ HTML_TEMPLATE = """
         body.story-mode #story-overlay { display: block; }
         .story-scroller { 
             position: absolute; top: 0; right: 0; width: 60%; height: 100%; 
-            overflow-y: auto; padding: 0; /* JS Spacer Handles Alignment */
+            overflow-y: auto; padding: 0; 
             background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); 
             scrollbar-width: none; pointer-events: auto; 
         }
-        .story-card { background: white; margin: 0 10% 50vh 10%; padding: 25px; border-radius: 12px; opacity: 0.3; transition: 0.5s; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        .story-card.active { opacity: 1; border-left: 5px solid var(--story); }
+        
+        /* MAGAZINE STYLE CARDS */
+        .story-card { 
+            background: white; margin: 0 10% 50vh 10%; padding: 30px; 
+            border-radius: 8px; opacity: 0.3; transition: 0.5s; 
+            box-shadow: 0 15px 40px -5px rgba(0,0,0,0.15); 
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .story-card.active { opacity: 1; transform: scale(1.02); }
+        .story-card p {
+            font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem;
+            color: #1d3557; text-align: center; margin-bottom: 20px; line-height: 1.4;
+            order: 1; /* TEXT FIRST */
+        }
+        .story-card img { width: 100%; height: auto; object-fit: cover; border-radius: 4px; order: 2; }
         
         @media (max-width: 768px) {
             .story-scroller { 
@@ -273,9 +270,11 @@ HTML_TEMPLATE = """
             }
             .story-card { 
                 flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; 
-                opacity: 0.5; scroll-snap-align: center; margin-bottom: 0;
+                opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px;
+                display: flex; flex-direction: column; justify-content: center;
             }
-            .story-card.active { opacity: 1; transform: scale(1.05); }
+            .story-card p { font-size: 1rem; margin-bottom: 15px; }
+            .story-card.active { opacity: 1; transform: scale(1); }
         }
 
         /* SCROLL HINT */
@@ -294,7 +293,9 @@ HTML_TEMPLATE = """
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
 
         .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
+        .bike-inner { display: inline-block; transform: scaleX(-1); }
         .bike-icon.visible { opacity: 1; }
+        
         .map-chapter-thumb { width: 30px; height: 30px; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: 0.3s; }
         .map-chapter-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .map-chapter-thumb.visible { opacity: 1; transform: translateY(0); }
@@ -481,7 +482,7 @@ HTML_TEMPLATE = """
             const sc = document.getElementById('story-scroller'); 
             sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
             
-            // DYNAMIC SPACER - Fixes First Image Alignment
+            // SPACER
             const spacer = document.createElement('div');
             spacer.style.height = isMobile ? '1px' : '50vh'; 
             spacer.style.width = isMobile ? '50vw' : '100%';
@@ -491,11 +492,13 @@ HTML_TEMPLATE = """
             currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
             if(currentStoryPoints.length) {
                 setupMath(currentStoryPoints);
-                const pad = isMobile ? [20, 100] : [50, 50];
-                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingTopLeft: [20,20], paddingBottomRight: pad, duration: 1.5 });
+                // FRAMING FIX: Desktop (Left Map), Mobile (Top Map)
+                const pad = isMobile ? [50, window.innerHeight * 0.5] : [window.innerWidth * 0.6, 50];
+                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
+                
                 map.once('moveend', () => {
                     if(!document.body.classList.contains('story-mode')) return;
-                    bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '🚴', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
+                    bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
                     setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
                     s.chapters.forEach((c, i) => {
                         const pt = getPtAtD(c.progress * totalRouteLength);
@@ -504,7 +507,7 @@ HTML_TEMPLATE = """
                     });
                 });
             }
-            s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<img src="${c.image}"><p>${c.text}</p>`; sc.appendChild(d); });
+            s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<p>${c.text}</p><img src="${c.image}">`; sc.appendChild(d); });
             
             const trail = document.createElement('div'); 
             trail.style.height = isMobile ? '1px' : '50vh'; 
@@ -561,7 +564,6 @@ HTML_TEMPLATE = """
 
         function resetView() { 
             exitStory(); closeGallery(); closePanel(); exitJourneyMode();
-            // document.body.classList.remove('shrunk'); // REMOVED - KEEP SHRUNK
             document.body.classList.remove('map-mode');
             
             let boundsPoints = allPoints;
