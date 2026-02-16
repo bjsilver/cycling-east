@@ -1,6 +1,7 @@
 import os
 import json
 import math
+import re
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
@@ -32,8 +33,10 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v58():
-    print("\n--- LOADING V58 DEV MODE ---")
+def natural_sort_key(s):
+    return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
+
+def load_data_v62():
     routes = []
     total_dist = 0
     file_dates = {}
@@ -52,7 +55,7 @@ def load_data_v58():
 
     stages = []
     if os.path.exists(STAGES_DIR):
-        stage_files = sorted([f for f in os.listdir(STAGES_DIR) if f.endswith('.json')])
+        stage_files = sorted([f for f in os.listdir(STAGES_DIR) if f.endswith('.json')], key=natural_sort_key)
         for sf in stage_files:
             try:
                 with open(os.path.join(STAGES_DIR, sf), 'r') as f:
@@ -111,7 +114,7 @@ def load_data_v58():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v58()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v62()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -131,27 +134,15 @@ HTML_TEMPLATE = """
         h1, h2, h3 { font-family: 'Playfair Display', serif; }
         .mono { font-family: 'Space Mono', monospace; }
 
-        /* TRANSITIONS */
-        .hero, .nav-container, #stage-card, #gallery-window { will-change: transform, opacity; }
-
         #map-container { position: fixed; inset: 0; z-index: 0; }
         #map { width: 100%; height: 100%; outline: none; }
         
-        .ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
-        .interactive { pointer-events: auto; }
-        
-        /* HIDE UI IN MODES */
-        body.story-mode .ui-layer, body.journey-mode .ui-layer { pointer-events: none; }
-        body.story-mode .start-btn-container, body.journey-mode .start-btn-container { display: none; }
+        .hero, .nav-container, #stage-card, #gallery-window { will-change: transform, opacity; }
 
-        /* HIDE STORY MARKERS IN STORY MODE */
-        body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
-
-        /* HERO TITLE - LEFT ALIGNED START */
+        /* HERO TITLE */
         .hero { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200; user-select: none; }
         .hero-content { 
-            position: absolute; 
-            top: 50%; left: 5vw; 
+            position: absolute; top: 50%; left: 5vw; 
             transform: translateY(-50%); 
             transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); 
             transform-origin: top left;
@@ -160,11 +151,17 @@ HTML_TEMPLATE = """
         .hero p { color: #475569; letter-spacing: 0.3em; margin-top: 10px; font-size: 0.9rem; }
         @media (max-width: 768px) { .hero h1 { font-size: 3.5rem; } .hero-content { left: 20px; } }
         
-        /* SHRUNK STATE */
         body.shrunk .hero-content { top: 30px; left: 30px; transform: translateY(0) scale(0.5); opacity: 0.8; }
-        .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; opacity: 0; }
-        body.shrunk .hero-gradient { opacity: 1; transform: translateX(0); }
-        body.story-mode .hero-gradient { opacity: 0 !important; }
+        
+        /* GRADIENT: Visible initially (Opacity 1), Hidden when shrunk (Opacity 0) */
+        .hero-gradient { 
+            position: fixed; inset: 0; width: 45%; 
+            background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); 
+            pointer-events: none; z-index: 50; 
+            transition: opacity 0.8s ease; 
+            opacity: 1; /* VISIBLE START */
+        }
+        body.shrunk .hero-gradient { opacity: 0; } /* HIDDEN AFTER INTERACTION */
 
         /* CONTROLS */
         .ctrl-group { position: fixed; top: 20px; right: 20px; z-index: 6000; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
@@ -185,92 +182,66 @@ HTML_TEMPLATE = """
             pointer-events: auto;
         }
         body.journey-mode .nav-container { transform: translateY(0); }
-
         .nav-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px; color: #94a3b8; transition: background 0.2s; background: #fff; }
         .nav-btn:hover { background: #f8fafc; color: var(--accent); }
         .nav-btn.close { border-left: 1px solid #e2e8f0; color: #000; font-size: 28px; font-weight: 300; }
-
-        .nav-scroll-area { 
-            overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth;
-            display: flex; align-items: flex-end; 
-            padding-bottom: 25px; 
-            padding-left: 40px; padding-right: 40px;
-        }
-        .nav-scroll-area::-webkit-scrollbar { display: none; }
-
+        .nav-scroll-area { overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; display: flex; align-items: flex-end; padding-bottom: 25px; padding-left: 40px; padding-right: 40px; }
         .timeline-track { position: relative; height: 4px; background: #e2e8f0; margin: 0 auto; min-width: 100%; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); transition: width 0.5s; }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; transition: transform 0.2s; }
         .nav-dot.active { background: var(--accent); transform: scale(1.4); }
-        .nav-dot:hover { transform: scale(1.2); }
-        .dot-label { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); font-family: 'Space Mono', monospace; font-size: 10px; color: #64748b; white-space: nowrap; pointer-events: none; opacity: 1; }
-
-        /* STAGE CARD */
-        #stage-card { 
-            position: fixed; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; 
-            background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; 
-            transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; 
-        }
-        #stage-card.visible { transform: translateX(0); }
-        @media (max-width: 768px) {
-            #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); }
-            #stage-card.visible { transform: translateY(0); }
-        }
-
-        /* DETAIL PANEL */
-        #detail-panel { 
-            position: fixed; bottom: 40px; right: 30px; width: 400px; 
-            background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; 
-            transform: translateY(200%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); 
-            box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; pointer-events: auto;
-        }
-        #detail-panel.open { transform: translateY(0); }
-        @media (max-width: 768px) { #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; } }
+        .dot-label { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); font-family: 'Space Mono', monospace; font-size: 10px; color: #64748b; white-space: nowrap; pointer-events: none; }
 
         /* STORY MODE */
         #story-overlay { position: fixed; inset: 0; z-index: 2000; display: none; pointer-events: none; }
         body.story-mode #story-overlay { display: block; }
-        .story-exit-btn { display: none; background: white; color: var(--text); border: 2px solid #e2e8f0; }
-        body.story-mode .story-exit-btn { display: flex; }
-
-        #story-scroller { 
-            position: absolute; top: 0; right: 0; width: 60%; height: 100%; 
-            overflow-y: auto; padding: 0; 
-            background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); 
-            scrollbar-width: none; pointer-events: auto; 
-        }
-        
+        #story-scroller { position: absolute; top: 0; right: 0; width: 60%; height: 100%; overflow-y: auto; background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); scrollbar-width: none; pointer-events: auto; }
         .story-card { background: white; margin: 0 10% 50vh 10%; padding: 30px; border-radius: 8px; opacity: 0.3; transition: 0.5s; box-shadow: 0 15px 40px -5px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: center; }
         .story-card.active { opacity: 1; transform: scale(1.02); }
         .story-card p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem; color: #1d3557; text-align: center; margin-bottom: 20px; order: 1; }
         .story-card img { width: 100%; height: auto; object-fit: cover; border-radius: 4px; order: 2; }
+        .story-exit-btn { display: none; background: white; color: var(--text); border: 2px solid #e2e8f0; }
+        body.story-mode .story-exit-btn { display: flex; }
 
-        @media (max-width: 768px) {
-            #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; }
-            .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; }
-            .story-card.active { opacity: 1; transform: scale(1); }
-        }
-
-        /* DEV LABELS (RESTORED) */
+        /* DEV MODE LABELS */
         .dev-label {
-            color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900; text-align: center;
+            color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900;
             text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff;
             white-space: nowrap; pointer-events: none;
         }
 
-        /* EXTRAS */
+        /* ICONS & DOTS */
         .story-marker-wrap { position: relative; width: 0; height: 0; }
-        .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; transition: transform 0.3s; }
+        .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         .story-dot svg { width: 16px; height: 16px; fill: white; }
         .story-bubble { position: absolute; bottom: 20px; left: -100px; width: 200px; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'Playfair Display', serif; font-weight: bold; font-style: italic; color: var(--story); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(10px) scale(0.8); transition: 0.3s; visibility: hidden; }
         .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
         .map-zoomed-in .story-bubble { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
         
+        body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+
         .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
         .bike-inner { display: inline-block; transform: scaleX(-1); }
         .bike-icon.visible { opacity: 1; }
+
+        /* GRAPH POPUP */
+        #detail-panel { position: fixed; bottom: 40px; right: 30px; width: 400px; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; transform: translateY(200%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; pointer-events: auto; }
+        #detail-panel.open { transform: translateY(0); }
         
+        #stage-card { position: fixed; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
+        #stage-card.visible { transform: translateX(0); }
+        
+        @media (max-width: 768px) {
+            #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); }
+            #stage-card.visible { transform: translateY(0); }
+            #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; }
+            #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; }
+            .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; }
+            .story-card.active { opacity: 1; transform: scale(1); }
+            .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; }
+        }
+
         #gallery-window { position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); display: none; flex-direction: column; overflow: hidden; z-index: 5000; }
         #gallery-window.visible { display: flex; animation: popup 0.3s ease; }
         @media (max-width: 768px) { #gallery-window { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; } .gal-header { padding-top: 10px; } .gal-close { position: absolute; bottom: 20px; right: 20px; background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; } }
@@ -299,7 +270,7 @@ HTML_TEMPLATE = """
     <div class="hero-gradient"></div>
 
     <div class="ctrl-group interactive">
-        <div id="sat-btn" class="ctrl-btn" onclick="toggleSat()" title="Satellite View">🛰</div>
+        <div id="map-toggle-btn" class="ctrl-btn" onclick="cycleMap()" title="Change Map Type">🛰</div>
         <div class="ctrl-btn" onclick="resetView()" title="Reset View">&#8635;</div>
         <div class="ctrl-btn story-exit-btn" onclick="exitStory()" title="Exit Story">×</div>
     </div>
@@ -325,10 +296,6 @@ HTML_TEMPLATE = """
             <div><h2 id="p-day" class="text-xl text-accent italic">Day X</h2><p id="p-date" class="text-[10px] mono uppercase">Date</p></div>
             <button onclick="closePanel()" class="text-slate-400 text-xl">&times;</button>
         </div>
-        <div class="flex justify-between items-end mb-2 pb-2 border-b border-slate-100">
-            <div class="flex gap-4 mono text-[10px] text-slate-500"><span><b id="p-dist"></b> KM</span><span><b id="p-time"></b> RIDING</span></div>
-            <div class="flex gap-1"><span id="btn-ele" class="chart-toggle active" onclick="switchChart('ele')">ELEV</span><span id="btn-speed" class="chart-toggle" onclick="switchChart('speed')">SPEED</span></div>
-        </div>
         <div class="h-24 md:h-40 w-full"><canvas id="elChart"></canvas></div>
     </div>
     
@@ -342,13 +309,12 @@ HTML_TEMPLATE = """
     </div>
 
     <div id="gallery-window" class="interactive">
-        <div class="gal-header" id="gal-header"><div class="gal-close" onclick="closeGallery()">×</div></div>
+        <div class="gal-header"><div class="gal-close" onclick="closeGallery()">×</div></div>
         <div class="gal-content">
-            <div class="gal-touch-area gal-touch-left" onclick="changeSlide(-1)"></div>
-            <div class="gal-touch-area gal-touch-right" onclick="changeSlide(1)"></div>
+            <div class="gal-touch-area" onclick="changeSlide(-1)"></div>
+            <div class="gal-touch-area" onclick="changeSlide(1)" style="right:0"></div>
             <img id="gal-img" src="">
             <video id="gal-vid" controls playsinline style="display:none"></video>
-            <div class="gal-expand-btn" onclick="toggleMaximize()">⤢</div>
         </div>
     </div>
 
@@ -357,34 +323,42 @@ HTML_TEMPLATE = """
         <div class="scroll-hint" id="scroll-hint"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const routes = {{ routes|tojson }};
         const STAGES = {{ stages|tojson }};
         const STORIES = {{ stories|tojson }};
+    </script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
         const isMobile = window.innerWidth < 768;
         
         var map = L.map('map', { zoomControl: false, attributionControl: false, renderer: L.canvas() }).setView([50, 0], 4);
-        const voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
-        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
-        voyager.addTo(map);
+        
+        const layers = {
+            voyager: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Map data: © OpenStreetMap SRTM | Map style: © OpenTopoMap' })
+        };
+        
+        layers.voyager.addTo(map);
+        let currentMapMode = 'voyager';
 
-        let isSat = false;
-        function toggleSat() {
-            isSat = !isSat;
-            if(isSat) { map.removeLayer(voyager); map.addLayer(satellite); }
-            else { map.removeLayer(satellite); map.addLayer(voyager); }
-            const btn = document.getElementById('sat-btn');
-            btn.innerHTML = isSat ? '🗺' : '🛰';
+        function cycleMap() {
+            map.removeLayer(layers[currentMapMode]);
+            const btn = document.getElementById('map-toggle-btn');
+            if (currentMapMode === 'voyager') { currentMapMode = 'satellite'; btn.innerHTML = '⛰️'; }
+            else if (currentMapMode === 'satellite') { currentMapMode = 'topo'; btn.innerHTML = '🗺️'; }
+            else { currentMapMode = 'voyager'; btn.innerHTML = '🛰️'; }
+            layers[currentMapMode].addTo(map);
         }
 
-        let activeChart = null, currentRouteData = null, chartType = 'ele', routeLayers = [];
+        let activeChart = null, currentRouteData = null, routeLayers = [];
         let bikeMarker = null, storyChapterMarkers = [], currentStoryPoints = [], routeDistances = [], totalRouteLength = 0;
         let allPoints = [], devLabels = [], storyMarkers = [], isDevMode = false;
-        let savedMapState = null, storyChapters = [];
-        let userInteracting = false;
+        let savedMapState = null, storyChapters = [], userInteracting = false;
+        let chartType = 'ele';
 
-        // --- MAP DATA ---
         routes.forEach((route, idx) => {
             allPoints.push(...route.coords);
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
@@ -398,10 +372,8 @@ HTML_TEMPLATE = """
         STORIES.forEach(story => {
             const html = `<div class="story-marker-wrap"><div class="story-dot"><svg viewBox="0 0 512 512"><path d="M496 128v16a8 8 0 0 1-8 8h-24v12c0 6.627-5.373 12-12 12H60c-6.627 0-12-5.373-12-12v-12H24a8 8 0 0 1-8-8v-16a8 8 0 0 1 4.941-7.392l232-88a7.996 7.996 0 0 1 6.118 0l232 88A8 8 0 0 1 496 128zm-24 104v144c0 17.673-14.327 32-32 32H72c-17.673 0-32-14.327-32-32V232c0-17.673 14.327-32 32-32h368c17.673 0 32 14.327 32 32zM80 400h352v-24H80v24zm352-56v-24H80v24h352z"/></svg></div><div class="story-bubble">${story.title}</div></div>`;
             const m = L.marker(story.location, { icon: L.divIcon({ className: 'story-div-icon', html: html }) }).addTo(map).on('click', (e) => { L.DomEvent.stopPropagation(e); startStory(story); });
-            storyMarkers.push({ marker: m, dayIdx: story.closest_segment });
         });
 
-        // --- INTERACTION ---
         function shrinkHero() { if(userInteracting) document.body.classList.add('shrunk'); }
         ['mousedown', 'touchstart', 'wheel', 'keydown'].forEach(evt => window.addEventListener(evt, () => { userInteracting = true; shrinkHero(); }));
         map.on('dragstart', () => { userInteracting = true; shrinkHero(); });
@@ -420,181 +392,29 @@ HTML_TEMPLATE = """
                 isDevMode = !isDevMode; 
                 devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); 
             }
-            if(galWin.classList.contains('visible')) {
-                if(e.key === 'ArrowLeft') changeSlide(-1);
-                if(e.key === 'ArrowRight') changeSlide(1);
-                if(e.key === 'Escape') closeGallery();
-            }
         });
 
         window.addEventListener('load', () => {
             if(allPoints.length) {
-                let boundsPoints = allPoints;
-                if(isMobile) boundsPoints = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
-                const pad = isMobile ? [20, 20] : [window.innerWidth * 0.25, 50];
-                map.fitBounds(L.polyline(boundsPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50] });
-                L.marker(allPoints[0], { icon: L.divIcon({ className: 'start-marker' }) }).addTo(map);
-                L.marker(allPoints[allPoints.length-1], { icon: L.divIcon({ className: 'end-marker' }) }).addTo(map);
+                let bp = allPoints; if(isMobile) bp = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
+                map.fitBounds(L.polyline(bp).getBounds(), { paddingTopLeft: isMobile ? [20,20] : [window.innerWidth*0.2, 50], paddingBottomRight: [50, 50] });
                 setTimeout(() => { requestAnimationFrame(() => { routeLayers.forEach((l, i) => setTimeout(() => { l.setStyle({opacity:1, color:'#fff', weight:4}); setTimeout(()=>l.setStyle({color:'#e63946', weight:3, opacity: 0.9}), 100); }, i*20)); }); }, 800);
                 
-                // CREATE DEV LABELS
-                routes.forEach((r, i) => { 
-                    const mid = r.coords[Math.floor(r.coords.length/2)]; 
-                    devLabels.push(L.marker(mid, { icon: L.divIcon({ className: 'dev-label', html: i, iconAnchor: [15, 12] }) })); 
+                routes.forEach((r, i) => {
+                    const mid = r.coords[Math.floor(r.coords.length/2)];
+                    devLabels.push(L.marker(mid, { icon: L.divIcon({ className: 'dev-label', html: i }) }));
                 });
             }
         });
 
         map.on('zoomend', () => {
-            if(map.getZoom() >= 7) document.getElementById('map-container').classList.add('map-zoomed-in');
-            else document.getElementById('map-container').classList.remove('map-zoomed-in');
+            const el = document.getElementById('map-container');
+            if(map.getZoom() >= 7) el.classList.add('map-zoomed-in');
+            else el.classList.remove('map-zoomed-in');
         });
 
-        let currStg = 0, currImg = 0;
-        const galWin = document.getElementById('gallery-window');
-        function openLB(sIdx, iIdx) { currStg = sIdx; currImg = iIdx; updateGallery(); galWin.classList.add('visible'); userInteracting = true; shrinkHero(); }
-        function closeGallery() { galWin.classList.remove('visible', 'maximized'); document.getElementById('gal-vid').pause(); }
-        function updateGallery() {
-            const url = STAGES[currStg].images[currImg];
-            const isVid = url.match(/\.(mp4|mov)$/i);
-            const v = document.getElementById('gal-vid'), i = document.getElementById('gal-img');
-            if(isVid) { i.style.display='none'; v.style.display='block'; v.src=url; v.play(); } 
-            else { v.pause(); v.style.display='none'; i.style.display='block'; i.src=url; }
-        }
-        function changeSlide(dir) { const imgs = STAGES[currStg].images; currImg = (currImg + dir + imgs.length) % imgs.length; updateGallery(); }
-        function toggleMaximize() { galWin.classList.toggle('maximized'); }
-
-        const head = document.getElementById('gal-header');
-        let isDrag = false, sx, sy, il, it;
-        head.addEventListener('mousedown', (e) => { if(galWin.classList.contains('maximized')) return; isDrag = true; sx = e.clientX; sy = e.clientY; const r = galWin.getBoundingClientRect(); il = r.left; it = r.top; galWin.classList.add('dragging'); });
-        window.addEventListener('mousemove', (e) => { if(!isDrag) return; galWin.style.left = `${il + (e.clientX - sx)}px`; galWin.style.top = `${it + (e.clientY - sy)}px`; galWin.style.right = 'auto'; });
-        window.addEventListener('mouseup', () => { isDrag = false; galWin.classList.remove('dragging'); });
-
-        function setupMath(p) { routeDistances = [0]; totalRouteLength = 0; for(let i=1; i<p.length; i++) { totalRouteLength += map.distance(p[i-1], p[i]); routeDistances.push(totalRouteLength); } }
-        function getPtAtD(d) { for(let i=1; i<routeDistances.length; i++) { if(routeDistances[i] >= d) { const frac = (d - routeDistances[i-1]) / (routeDistances[i] - routeDistances[i-1]); return [currentStoryPoints[i-1][0] + (currentStoryPoints[i][0] - currentStoryPoints[i-1][0]) * frac, currentStoryPoints[i-1][1] + (currentStoryPoints[i][1] - currentStoryPoints[i-1][1]) * frac]; } } return currentStoryPoints[currentStoryPoints.length-1]; }
-        function forwardScroll(e) { document.getElementById('story-scroller').scrollTop += e.deltaY; }
-
-        function startStory(s) {
-            closeAllModes();
-            userInteracting = true; shrinkHero();
-            document.body.classList.add('story-mode'); 
-            savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
-            storyChapters = s.chapters || [];
-            storyChapterMarkers = [];
-            
-            const sc = document.getElementById('story-scroller'); 
-            sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
-            
-            const spacer = document.createElement('div');
-            spacer.style.height = isMobile ? '1px' : '50vh'; 
-            spacer.style.width = isMobile ? '50vw' : '100%';
-            spacer.style.flexShrink = '0'; 
-            sc.appendChild(spacer);
-
-            currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
-            if(currentStoryPoints.length) {
-                setupMath(currentStoryPoints);
-                const pad = isMobile ? [20, 100] : [window.innerWidth * 0.6, 50];
-                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
-                map.once('moveend', () => {
-                    if(!document.body.classList.contains('story-mode')) return;
-                    bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
-                    setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
-                    s.chapters.forEach((c, i) => {
-                        const pt = getPtAtD(c.progress * s.max_progress * totalRouteLength);
-                        const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
-                        setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
-                    });
-                });
-            }
-            s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<p>${c.text}</p><img src="${c.image}">`; sc.appendChild(d); });
-            
-            const trail = document.createElement('div'); 
-            trail.style.height = isMobile ? '1px' : '50vh'; 
-            trail.style.width = isMobile ? '50vw' : '100%';
-            trail.style.flexShrink = '0';
-            sc.appendChild(trail);
-            document.getElementById('scroll-hint').style.opacity = '1';
-        }
-
-        let lastScroll = 0;
-        function checkStoryScroll() {
-            const now = Date.now(); if (now - lastScroll < 16) return; lastScroll = now;
-            const sc = document.getElementById('story-scroller');
-            
-            if(sc.scrollLeft > 10 || sc.scrollTop > 10) document.getElementById('scroll-hint').style.opacity = '0';
-
-            const cards = document.querySelectorAll('.story-card');
-            
-            let totalScroll = isMobile ? (sc.scrollWidth - window.innerWidth) : (sc.scrollHeight - window.innerHeight);
-            let currentScroll = isMobile ? sc.scrollLeft : sc.scrollTop;
-            if(totalScroll <= 0) return;
-            
-            for(let i=0; i<cards.length; i++) {
-                const box = cards[i].getBoundingClientRect();
-                const center = isMobile ? (box.left + box.width/2) : (box.top + box.height/2);
-                const screenCenter = isMobile ? (window.innerWidth/2) : (window.innerHeight/2);
-                if(Math.abs(center - screenCenter) < (isMobile ? 150 : 300)) {
-                    if(!cards[i].classList.contains('active')) { 
-                        cards[i].classList.add('active'); 
-                        storyChapterMarkers.forEach((m, idx) => m._icon && (idx === i ? m._icon.classList.add('active') : m._icon.classList.remove('active')));
-                    }
-                } else cards[i].classList.remove('active');
-            }
-
-            if(cards.length > 1) {
-                let firstCenter = isMobile ? (cards[0].offsetLeft + cards[0].offsetWidth/2) : (cards[0].offsetTop + cards[0].offsetHeight/2);
-                let lastCenter = isMobile ? (cards[cards.length-1].offsetLeft + cards[cards.length-1].offsetWidth/2) : (cards[cards.length-1].offsetTop + cards[cards.length-1].offsetHeight/2);
-                let scrollCenter = isMobile ? (currentScroll + window.innerWidth/2) : (currentScroll + window.innerHeight/2);
-                
-                let cardPct = (scrollCenter - firstCenter) / (lastCenter - firstCenter);
-                cardPct = Math.max(0, Math.min(1, cardPct));
-                
-                let floatIdx = cardPct * (cards.length - 1);
-                let lowIdx = Math.floor(floatIdx);
-                let highIdx = Math.ceil(floatIdx);
-                let localPct = floatIdx - lowIdx;
-                
-                if(storyChapters[lowIdx] && storyChapters[highIdx]) {
-                    let p1 = storyChapters[lowIdx].progress;
-                    let p2 = storyChapters[highIdx].progress;
-                    let currentP = p1 + (p2 - p1) * localPct;
-                    let targetDist = currentP * totalRouteLength;
-                    
-                    if(bikeMarker && totalRouteLength > 0) {
-                        bikeMarker.setLatLng(getPtAtD(targetDist));
-                        const bikePx = map.latLngToContainerPoint(bikeMarker.getLatLng());
-                        const w = window.innerWidth; const h = window.innerHeight;
-                        let minX, maxX, minY, maxY;
-                        if(isMobile) {
-                            minX = 20; maxX = w - 20; minY = 50; maxY = (h * 0.45) - 50;
-                        } else {
-                            minX = 50; maxX = (w * 0.4) - 50; minY = 50; maxY = h - 50;
-                        }
-                        if (bikePx.x < minX || bikePx.x > maxX || bikePx.y < minY || bikePx.y > maxY) {
-                            let targetX = isMobile ? w/2 : w * 0.2;
-                            let targetY = isMobile ? h * 0.225 : h/2;
-                            map.panBy([bikePx.x - targetX, bikePx.y - targetY], {animate: true, duration: 1.0, easeLinearity: 0.1});
-                        }
-                    }
-                }
-            }
-        }
-
-        function exitStory() { closeAllModes(); if(savedMapState) map.flyTo(savedMapState.center, savedMapState.zoom, { duration: 1.5 }); }
-        function exitJourneyMode() { closeAllModes(); }
-        function resetView() { 
-            closeAllModes();
-            document.body.classList.remove('map-mode');
-            let boundsPoints = allPoints;
-            if(isMobile) boundsPoints = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
-            const pad = isMobile ? [20, 20] : [window.innerWidth * 0.25, 50];
-            map.fitBounds(L.polyline(boundsPoints).getBounds(), { paddingTopLeft: pad, paddingBottomRight: [50, 50], duration: 1.5 }); 
-        }
-        
         function startJourney() { 
-            closeAllModes();
-            userInteracting = true; shrinkHero();
+            closeAllModes(); userInteracting = true; shrinkHero();
             document.body.classList.add('journey-mode'); 
             document.getElementById('chapter-btn-wrap').style.display = 'none';
             setupTimeline();
@@ -616,8 +436,6 @@ HTML_TEMPLATE = """
             }
         }
 
-        function scrollNav(dir) { document.getElementById('nav-scroll-area').scrollBy({ left: dir * 200, behavior: 'smooth' }); }
-
         function setStage(index) {
             const s = STAGES[index]; document.getElementById('st-title').innerText = s.title; document.getElementById('st-date').innerText = s.date_range; document.getElementById('st-desc').innerText = s.description; const tc = document.getElementById('st-thumbs'); tc.innerHTML = ''; s.images.forEach((u, i) => tc.innerHTML += `<div class="thumb-wrap" onclick="openLB(${index}, ${i})"><img src="${u}"></div>`); 
             document.getElementById('timeline-fill').style.width = `${(index / (STAGES.length - 1)) * 100}%`; 
@@ -626,40 +444,126 @@ HTML_TEMPLATE = """
             let pts = []; for(let i=s.start_index; i<=s.end_index; i++) { if(routes[i]) pts.push(...routes[i].coords); } if(pts.length) map.flyToBounds(L.polyline(pts).getBounds(), { padding: [100,100], duration: 2 });
         }
 
-        function showDetail(data) { 
-            closeAllModes();
-            currentRouteData = data; 
-            document.getElementById('p-day').innerText = `Day ${data.day}`; 
-            document.getElementById('p-date').innerText = data.date; 
-            document.getElementById('p-dist').innerText = data.distance; 
-            document.getElementById('p-time').innerText = data.duration; 
-            document.getElementById('detail-panel').classList.add('open'); 
-            renderChart(); 
+        function startStory(s) {
+            closeAllModes(); userInteracting = true; shrinkHero();
+            document.body.classList.add('story-mode'); 
+            savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
+            storyChapters = s.chapters || [];
+            
+            const sc = document.getElementById('story-scroller'); sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
+            const spacer = document.createElement('div'); spacer.style.height = isMobile ? '1px' : '50vh'; spacer.style.width = isMobile ? '50vw' : '100%'; spacer.style.flexShrink = '0'; sc.appendChild(spacer);
+
+            currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
+            if(currentStoryPoints.length) {
+                setupMath(currentStoryPoints);
+                const pad = isMobile ? [20, 100] : [window.innerWidth * 0.6, 50];
+                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
+                map.once('moveend', () => {
+                    if(!document.body.classList.contains('story-mode')) return;
+                    bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
+                    setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
+                    s.chapters.forEach((c, i) => {
+                        const pt = getPtAtD(c.progress * totalRouteLength);
+                        const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
+                        setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
+                    });
+                });
+            }
+            s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<p>${c.text}</p><img src="${c.image}">`; sc.appendChild(d); });
+            const trail = document.createElement('div'); trail.style.height = isMobile ? '1px' : '50vh'; trail.style.width = isMobile ? '50vw' : '100%'; trail.style.flexShrink = '0'; sc.appendChild(trail);
+            document.getElementById('scroll-hint').style.opacity = '1';
         }
+
+        function checkStoryScroll() {
+            const sc = document.getElementById('story-scroller');
+            const cards = document.querySelectorAll('.story-card');
+            let totalS = isMobile ? (sc.scrollWidth - window.innerWidth) : (sc.scrollHeight - window.innerHeight);
+            let currS = isMobile ? sc.scrollLeft : sc.scrollTop;
+            if(totalS <= 0 || cards.length < 2) return;
+            
+            let firstC = isMobile ? (cards[0].offsetLeft + cards[0].offsetWidth/2) : (cards[0].offsetTop + cards[0].offsetHeight/2);
+            let lastC = isMobile ? (cards[cards.length-1].offsetLeft + cards[cards.length-1].offsetWidth/2) : (cards[cards.length-1].offsetTop + cards[cards.length-1].offsetHeight/2);
+            let sCenter = isMobile ? (currS + window.innerWidth/2) : (currS + window.innerHeight/2);
+            
+            let cardPct = Math.max(0, Math.min(1, (sCenter - firstC) / (lastC - firstC)));
+            let floatIdx = cardPct * (cards.length - 1);
+            let lowIdx = Math.floor(floatIdx), highIdx = Math.ceil(floatIdx), localPct = floatIdx - lowIdx;
+            
+            if(storyChapters[lowIdx] && storyChapters[highIdx]) {
+                let currentP = storyChapters[lowIdx].progress + (storyChapters[highIdx].progress - storyChapters[lowIdx].progress) * localPct;
+                if(bikeMarker) {
+                    bikeMarker.setLatLng(getPtAtD(currentP * totalRouteLength));
+                    const bikePx = map.latLngToContainerPoint(bikeMarker.getLatLng());
+                    const w = window.innerWidth, h = window.innerHeight;
+                    let mX = isMobile ? 20 : 50, MX = isMobile ? w-20 : w*0.4-50, mY = 50, MY = isMobile ? h*0.45-50 : h-50;
+                    if (bikePx.x < mX || bikePx.x > MX || bikePx.y < mY || bikePx.y > MY) {
+                        map.panBy([bikePx.x - (isMobile ? w/2 : w*0.2), bikePx.y - (isMobile ? h*0.225 : h/2)], {animate: true, duration: 1.0});
+                    }
+                }
+            }
+            cards.forEach((c, i) => {
+                const box = c.getBoundingClientRect();
+                const center = isMobile ? (box.left + box.width/2) : (box.top + box.height/2);
+                const screenC = isMobile ? (window.innerWidth/2) : (window.innerHeight/2);
+                if(Math.abs(center - screenC) < 150) {
+                    if(!c.classList.contains('active')) { c.classList.add('active'); storyChapterMarkers.forEach((m, idx) => m._icon && (idx === i ? m._icon.classList.add('active') : m._icon.classList.remove('active'))); }
+                } else c.classList.remove('active');
+            });
+        }
+
+        function exitStory() { closeAllModes(); if(savedMapState) map.flyTo(savedMapState.center, savedMapState.zoom, { duration: 1.5 }); }
+        function exitJourneyMode() { closeAllModes(); }
+        function resetView() { closeAllModes(); let bp = allPoints; if(isMobile) bp = allPoints.slice(0, Math.floor(allPoints.length * 0.2)); map.fitBounds(L.polyline(bp).getBounds(), { padding: [50, 50], duration: 1.5 }); }
+        function scrollNav(dir) { document.getElementById('nav-scroll-area').scrollBy({ left: dir * 200, behavior: 'smooth' }); }
         function closePanel() { document.getElementById('detail-panel').classList.remove('open'); }
-        function switchChart(type) { chartType = type; document.getElementById('btn-ele').className = `chart-toggle ${type==='ele'?'active':''}`; document.getElementById('btn-speed').className = `chart-toggle ${type==='speed'?'active blue':''}`; renderChart(); }
-        function renderChart() { 
-            if(!currentRouteData) return; 
-            const ctx = document.getElementById('elChart').getContext('2d'); 
-            if(activeChart) activeChart.destroy(); 
-            const isEle = chartType === 'ele'; 
-            const labelArray = new Array(currentRouteData.elevation.length).fill(''); 
-            activeChart = new Chart(ctx, { 
-                type: 'line', 
-                data: { labels: labelArray, datasets: [{ data: isEle ? currentRouteData.elevation : currentRouteData.speed, borderColor: isEle ? '#e63946' : '#457b9d', backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 }] }, 
-                options: { 
-                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
+        function showDetail(d) { closeAllModes(); currentRouteData = d; document.getElementById('p-day').innerText = `Day ${d.day}`; document.getElementById('detail-panel').classList.add('open'); renderChart(); }
+        function switchChart(t) { chartType = t; renderChart(); }
+
+        function renderChart() {
+            if(!currentRouteData) return;
+            const ctx = document.getElementById('elChart').getContext('2d');
+            if(activeChart) activeChart.destroy();
+            const isEle = chartType === 'ele';
+            
+            const dist = parseFloat(currentRouteData.distance);
+            const len = currentRouteData.elevation.length;
+            const labels = Array.from({length: len}, (_, i) => ((i / (len - 1)) * dist).toFixed(1));
+
+            activeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: isEle ? currentRouteData.elevation : currentRouteData.speed,
+                        borderColor: isEle ? '#e63946' : '#457b9d',
+                        backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)',
+                        fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
                     onClick: (e) => {
                         const points = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
                         if (points.length) {
-                            const pct = points[0].index / currentRouteData.elevation.length;
+                            const pct = points[0].index / len;
                             map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14);
                         }
                     },
-                    scales: { x: { display: false }, y: { display: false, grid: { display: false } } } 
-                } 
-            }); 
+                    scales: {
+                        x: { display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+                        y: { display: true, title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#f1f5f9', borderDash: [4, 4] } }
+                    }
+                }
+            });
         }
+
+        function openLB(s, i) { currStg = s; currImg = i; updateGallery(); galWin.classList.add('visible'); userInteracting = true; shrinkHero(); }
+        function closeGallery() { galWin.classList.remove('visible'); document.getElementById('gal-vid').pause(); }
+        function updateGallery() { const url = STAGES[currStg].images[currImg]; const isV = url.match(/\.(mp4|mov)$/i); const v = document.getElementById('gal-vid'), i = document.getElementById('gal-img'); if(isV) { i.style.display='none'; v.style.display='block'; v.src=url; v.play(); } else { v.pause(); v.style.display='none'; i.style.display='block'; i.src=url; } }
+        function changeSlide(d) { const imgs = STAGES[currStg].images; currImg = (currImg + d + imgs.length) % imgs.length; updateGallery(); }
+        function toggleMaximize() { galWin.classList.toggle('maximized'); }
     </script>
 </body>
 </html>
