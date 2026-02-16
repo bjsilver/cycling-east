@@ -32,8 +32,8 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
-def load_data_v57():
-    print("\n--- LOADING V57 FINAL TWEAKS ---")
+def load_data_v58():
+    print("\n--- LOADING V58 DEV MODE ---")
     routes = []
     total_dist = 0
     file_dates = {}
@@ -111,7 +111,7 @@ def load_data_v57():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v57()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v58()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -144,10 +144,10 @@ HTML_TEMPLATE = """
         body.story-mode .ui-layer, body.journey-mode .ui-layer { pointer-events: none; }
         body.story-mode .start-btn-container, body.journey-mode .start-btn-container { display: none; }
 
-        /* HIDE STORY MARKERS IN STORY MODE (Tweak 1) */
+        /* HIDE STORY MARKERS IN STORY MODE */
         body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
 
-        /* HERO TITLE */
+        /* HERO TITLE - LEFT ALIGNED START */
         .hero { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200; user-select: none; }
         .hero-content { 
             position: absolute; 
@@ -194,7 +194,7 @@ HTML_TEMPLATE = """
             overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth;
             display: flex; align-items: flex-end; 
             padding-bottom: 25px; 
-            padding-left: 40px; padding-right: 40px; /* Tweak 3: Padding for Labels */
+            padding-left: 40px; padding-right: 40px;
         }
         .nav-scroll-area::-webkit-scrollbar { display: none; }
 
@@ -251,6 +251,13 @@ HTML_TEMPLATE = """
             .story-card.active { opacity: 1; transform: scale(1); }
         }
 
+        /* DEV LABELS (RESTORED) */
+        .dev-label {
+            color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900; text-align: center;
+            text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff;
+            white-space: nowrap; pointer-events: none;
+        }
+
         /* EXTRAS */
         .story-marker-wrap { position: relative; width: 0; height: 0; }
         .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; transition: transform 0.3s; }
@@ -279,7 +286,6 @@ HTML_TEMPLATE = """
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
         .chart-toggle { cursor: pointer; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #eee; color: #666; }
         .chart-toggle.active { background: var(--accent); color: white; }
-        .dev-label { background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: bold; border: 1px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: nowrap; }
         .scroll-hint { position: fixed; bottom: 30px; left: 75%; transform: translateX(-50%); color: #000; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.8); animation: bounce 2s infinite; opacity: 0; transition: opacity 0.5s; z-index: 3000; pointer-events: none; }
         .scroll-hint::after { content: 'SCROLL ↓'; }
         @media (max-width: 768px) { .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } }
@@ -410,7 +416,10 @@ HTML_TEMPLATE = """
         }
 
         window.addEventListener('keydown', (e) => {
-            if(e.key === '`' || e.key === '~') { isDevMode = !isDevMode; devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); }
+            if(e.key === '`' || e.key === '~') { 
+                isDevMode = !isDevMode; 
+                devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); 
+            }
             if(galWin.classList.contains('visible')) {
                 if(e.key === 'ArrowLeft') changeSlide(-1);
                 if(e.key === 'ArrowRight') changeSlide(1);
@@ -427,6 +436,12 @@ HTML_TEMPLATE = """
                 L.marker(allPoints[0], { icon: L.divIcon({ className: 'start-marker' }) }).addTo(map);
                 L.marker(allPoints[allPoints.length-1], { icon: L.divIcon({ className: 'end-marker' }) }).addTo(map);
                 setTimeout(() => { requestAnimationFrame(() => { routeLayers.forEach((l, i) => setTimeout(() => { l.setStyle({opacity:1, color:'#fff', weight:4}); setTimeout(()=>l.setStyle({color:'#e63946', weight:3, opacity: 0.9}), 100); }, i*20)); }); }, 800);
+                
+                // CREATE DEV LABELS
+                routes.forEach((r, i) => { 
+                    const mid = r.coords[Math.floor(r.coords.length/2)]; 
+                    devLabels.push(L.marker(mid, { icon: L.divIcon({ className: 'dev-label', html: i, iconAnchor: [15, 12] }) })); 
+                });
             }
         });
 
