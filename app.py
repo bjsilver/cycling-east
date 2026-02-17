@@ -36,7 +36,7 @@ def simplify_route(coords, threshold_meters=30):
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
-def load_data_v64():
+def load_data_v66():
     routes = []
     total_dist = 0
     file_dates = {}
@@ -114,7 +114,7 @@ def load_data_v64():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v64()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v66()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -152,7 +152,11 @@ HTML_TEMPLATE = """
         @media (max-width: 768px) { .hero h1 { font-size: 3.5rem; } .hero-content { left: 20px; } }
         
         body.shrunk .hero-content { top: 30px; left: 30px; transform: translateY(0) scale(0.5); opacity: 0.8; }
-        .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; opacity: 1; }
+        .hero-gradient { 
+            position: fixed; inset: 0; width: 45%; 
+            background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); 
+            pointer-events: none; z-index: 50; transition: 0.8s ease; opacity: 1; 
+        }
         body.shrunk .hero-gradient { opacity: 0; }
 
         /* CONTROLS */
@@ -160,7 +164,8 @@ HTML_TEMPLATE = """
         .ctrl-btn { width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 18px; color: var(--text); transition: 0.2s; }
         .ctrl-btn:hover { transform: scale(1.1); }
 
-        .start-btn-container { position: fixed; bottom: 40px; left: 40px; z-index: 300; transition: opacity 0.5s; pointer-events: auto; }
+        /* CHAPTERS BUTTON - Z-INDEX BOOSTED TO FIX CLICKABILITY */
+        .start-btn-container { position: fixed; bottom: 40px; left: 40px; z-index: 5000; transition: opacity 0.5s; pointer-events: auto; }
         .start-btn { background: white; color: var(--text); border: 1px solid var(--text); padding: 15px 40px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 3px; cursor: pointer; transition: 0.3s; }
         .start-btn:hover { background: var(--text); color: white; }
 
@@ -171,6 +176,7 @@ HTML_TEMPLATE = """
         .nav-btn:hover { background: #f8fafc; color: var(--accent); }
         .nav-btn.close { border-left: 1px solid #e2e8f0; color: #000; font-size: 28px; font-weight: 300; }
         .nav-scroll-area { overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; display: flex; align-items: flex-end; padding-bottom: 25px; padding-left: 60px; padding-right: 60px; }
+        .nav-scroll-area::-webkit-scrollbar { display: none; }
         .timeline-track { position: relative; height: 4px; background: #e2e8f0; margin: 0 auto; min-width: 100%; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); transition: width 0.5s; }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; transition: transform 0.2s; }
@@ -185,47 +191,38 @@ HTML_TEMPLATE = """
         .story-card.active { opacity: 1; transform: scale(1.02); }
         .story-card p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem; color: #1d3557; text-align: center; margin-bottom: 20px; order: 1; }
         .story-card img { width: 100%; height: auto; object-fit: cover; border-radius: 4px; order: 2; }
+        
         .story-exit-btn { display: none; background: white; color: var(--text); border: 2px solid #e2e8f0; }
         body.story-mode .story-exit-btn { display: flex; }
         body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
-
-        /* DEV MODE LABELS */
-        .dev-label { color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900; text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff; white-space: nowrap; pointer-events: none; }
-
-        /* ICONS & DOTS */
-        .story-marker-wrap { position: relative; width: 0; height: 0; }
-        .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        .story-dot svg { width: 16px; height: 16px; fill: white; }
-        .story-bubble { position: absolute; bottom: 20px; left: -100px; width: 200px; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'Playfair Display', serif; font-weight: bold; font-style: italic; color: var(--story); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(10px) scale(0.8); transition: 0.3s; visibility: hidden; }
-        .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
-        .map-zoomed-in .story-bubble { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
-        
-        .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
-        .bike-inner { display: inline-block; transform: scaleX(-1); }
-        .bike-icon.visible { opacity: 1; }
 
         /* PANELS */
         #detail-panel { position: fixed; bottom: 40px; right: 30px; width: 400px; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; transform: translateY(200%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; pointer-events: auto; }
         #detail-panel.open { transform: translateY(0); }
         #stage-card { position: fixed; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
         #stage-card.visible { transform: translateX(0); }
-        @media (max-width: 768px) { #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); } #stage-card.visible { transform: translateY(0); } #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; } #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; } .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; } .story-card.active { opacity: 1; transform: scale(1); } .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } }
-
-        /* GALLERY WINDOW (DRAGGABLE) */
-        #gallery-window { 
-            position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; 
-            background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); 
-            display: none; flex-direction: column; overflow: hidden; z-index: 9999; 
+        
+        @media (max-width: 768px) {
+            #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); }
+            #stage-card.visible { transform: translateY(0); }
+            #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; }
+            #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; }
+            .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; }
+            .story-card.active { opacity: 1; transform: scale(1); }
+            .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; }
         }
-        #gallery-window.visible { display: flex; animation: popup 0.3s ease; }
+
+        /* GALLERY */
+        #gallery-window { position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); display: none; flex-direction: column; overflow: hidden; z-index: 9999; }
+        #gallery-window.visible { display: flex; animation: popup 0.3s ease; opacity: 1; pointer-events: auto; }
+        @keyframes popup { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         #gallery-window.fullscreen { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; max-width: none; max-height: none; border-radius: 0; }
+        @media (max-width: 768px) { #gallery-window { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; } .gal-header { padding-top: 10px; } .gal-close { position: absolute; bottom: 20px; right: 20px; background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; } }
         
         .gal-header { height: 40px; background: #f1f5f9; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; cursor: move; }
         .gal-controls { display: flex; gap: 10px; }
         .gal-btn { cursor: pointer; font-size: 20px; color: #64748b; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
         .gal-btn:hover { background: #e2e8f0; }
-        
         .gal-content { position: relative; flex: 1; background: black; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .gal-content img, .gal-content video { max-width: 100%; max-height: 100%; object-fit: contain; }
         .gal-touch-area { position: absolute; top: 0; height: 100%; width: 25%; z-index: 100; cursor: pointer; }
@@ -236,8 +233,14 @@ HTML_TEMPLATE = """
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
         .chart-toggle { cursor: pointer; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #eee; color: #666; }
         .chart-toggle.active { background: var(--accent); color: white; }
-        .scroll-hint { position: fixed; bottom: 30px; left: 75%; transform: translateX(-50%); color: #000; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.8); animation: bounce 2s infinite; opacity: 0; transition: opacity 0.5s; z-index: 3000; pointer-events: none; }
-        .scroll-hint::after { content: 'SCROLL ↓'; }
+        .dev-label { color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900; text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff; white-space: nowrap; pointer-events: none; }
+        .story-marker-wrap { position: relative; width: 0; height: 0; }
+        .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .story-dot svg { width: 16px; height: 16px; fill: white; }
+        .story-bubble { position: absolute; bottom: 20px; left: -100px; width: 200px; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'Playfair Display', serif; font-weight: bold; font-style: italic; color: var(--story); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(10px) scale(0.8); transition: 0.3s; visibility: hidden; }
+        .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
+        .map-zoomed-in .story-bubble { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
         .map-chapter-thumb { width: 40px !important; height: 40px !important; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: 0.3s; }
         .map-chapter-thumb img { width: 100% !important; height: 100% !important; object-fit: cover !important; margin: 0 !important; }
         .map-chapter-thumb.visible { opacity: 1; transform: translateY(0); }
@@ -250,7 +253,7 @@ HTML_TEMPLATE = """
     <div class="ctrl-group interactive">
         <div id="map-toggle-btn" class="ctrl-btn" onclick="cycleMap()" title="Change Map Type">🛰</div>
         <div class="ctrl-btn" onclick="resetView()" title="Reset View">&#8635;</div>
-        <div class="ctrl-btn story-exit-btn" onclick="exitStory()" title="Exit Story">×</div>
+        <div class="ctrl-btn story-exit-btn" id="story-exit-btn" onclick="exitStory()" title="Exit Story">×</div>
     </div>
 
     <div class="hero">
@@ -273,6 +276,10 @@ HTML_TEMPLATE = """
         <div class="flex justify-between items-start mb-2">
             <div><h2 id="p-day" class="text-xl text-accent italic">Day X</h2><p id="p-date" class="text-[10px] mono uppercase">Date</p></div>
             <button onclick="closePanel()" class="text-slate-400 text-xl">&times;</button>
+        </div>
+        <div class="flex justify-between items-end mb-2 pb-2 border-b border-slate-100">
+            <div class="flex gap-4 mono text-[10px] text-slate-500"><span><b id="p-dist"></b> KM</span><span><b id="p-time"></b> RIDING</span></div>
+            <div class="flex gap-1"><span id="btn-ele" class="chart-toggle active" onclick="switchChart('ele')">ELEV</span><span id="btn-speed" class="chart-toggle" onclick="switchChart('speed')">SPEED</span></div>
         </div>
         <div class="h-24 md:h-40 w-full"><canvas id="elChart"></canvas></div>
     </div>
@@ -394,7 +401,6 @@ HTML_TEMPLATE = """
             else el.classList.remove('map-zoomed-in');
         });
 
-        // --- GALLERY LOGIC ---
         const galWin = document.getElementById('gallery-window');
         const galHead = document.getElementById('gal-header');
         let isDrag = false, sx, sy, lx, ly;
@@ -409,7 +415,7 @@ HTML_TEMPLATE = """
             if(!isDrag) return;
             galWin.style.left = `${lx + (e.clientX - sx)}px`;
             galWin.style.top = `${ly + (e.clientY - sy)}px`;
-            galWin.style.right = 'auto'; // Disable CSS right positioning
+            galWin.style.right = 'auto'; 
         });
         window.addEventListener('mouseup', () => { isDrag = false; galWin.classList.remove('dragging'); });
 
@@ -425,7 +431,6 @@ HTML_TEMPLATE = """
         function changeSlide(dir) { const imgs = STAGES[currStg].images; currImg = (currImg + dir + imgs.length) % imgs.length; updateGallery(); }
         function toggleFullscreen() { galWin.classList.toggle('fullscreen'); }
 
-        // --- REST OF APP LOGIC ---
         function setupMath(p) { routeDistances = [0]; totalRouteLength = 0; for(let i=1; i<p.length; i++) { totalRouteLength += map.distance(p[i-1], p[i]); routeDistances.push(totalRouteLength); } }
         function getPtAtD(d) { for(let i=1; i<routeDistances.length; i++) { if(routeDistances[i] >= d) { const frac = (d - routeDistances[i-1]) / (routeDistances[i] - routeDistances[i-1]); return [currentStoryPoints[i-1][0] + (currentStoryPoints[i][0] - currentStoryPoints[i-1][0]) * frac, currentStoryPoints[i-1][1] + (currentStoryPoints[i][1] - currentStoryPoints[i-1][1]) * frac]; } } return currentStoryPoints[currentStoryPoints.length-1]; }
         function forwardScroll(e) { document.getElementById('story-scroller').scrollTop += e.deltaY; }
@@ -440,31 +445,35 @@ HTML_TEMPLATE = """
             const sc = document.getElementById('story-scroller'); sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
             const spacer = document.createElement('div'); spacer.style.height = isMobile ? '1px' : '50vh'; spacer.style.width = isMobile ? '50vw' : '100%'; spacer.style.flexShrink = '0'; sc.appendChild(spacer);
 
-            currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
-            
-            // FALLBACK IF NO ROUTES
-            if(currentStoryPoints.length === 0) {
-               map.flyTo(s.location, 10, { duration: 1.5 });
-            } else {
-               setupMath(currentStoryPoints);
-               const pad = isMobile ? [20, 100] : [window.innerWidth * 0.6, 50];
-               map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
-               map.once('moveend', () => {
-                   if(!document.body.classList.contains('story-mode')) return;
-                   bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
-                   setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
-                   s.chapters.forEach((c, i) => {
-                       const pt = getPtAtD(c.progress * s.max_progress * totalRouteLength);
-                       const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
-                       setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
-                   });
-               });
+            if(s.chapters) {
+                s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<p>${c.text}</p><img src="${c.image}">`; sc.appendChild(d); });
             }
-            s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<p>${c.text}</p><img src="${c.image}">`; sc.appendChild(d); });
+            
             const trail = document.createElement('div'); trail.style.height = isMobile ? '1px' : '50vh'; trail.style.width = isMobile ? '50vw' : '100%'; trail.style.flexShrink = '0'; sc.appendChild(trail);
             document.getElementById('scroll-hint').style.opacity = '1';
+
+            currentStoryPoints = []; 
+            if(s.route_segment_ids) s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
             
-            // IMMEDIATE RENDER
+            if(currentStoryPoints.length > 0) {
+                setupMath(currentStoryPoints);
+                bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
+                setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
+                
+                if(s.chapters) {
+                    s.chapters.forEach((c, i) => {
+                        let maxP = s.max_progress || 1.0;
+                        const pt = getPtAtD(c.progress * maxP * totalRouteLength);
+                        const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
+                        setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
+                    });
+                }
+
+                const pad = isMobile ? [20, 100] : [window.innerWidth * 0.6, 50];
+                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
+            } else {
+                map.flyTo(s.location, 10);
+            }
             setTimeout(checkStoryScroll, 100);
         }
 
@@ -511,19 +520,42 @@ HTML_TEMPLATE = """
         function resetView() { closeAllModes(); let bp = allPoints; if(isMobile) bp = allPoints.slice(0, Math.floor(allPoints.length * 0.2)); map.fitBounds(L.polyline(bp).getBounds(), { padding: [50, 50], duration: 1.5 }); }
         function scrollNav(dir) { document.getElementById('nav-scroll-area').scrollBy({ left: dir * 200, behavior: 'smooth' }); }
         function closePanel() { document.getElementById('detail-panel').classList.remove('open'); }
-        function showDetail(d) { closeAllModes(); currentRouteData = d; document.getElementById('p-day').innerText = `Day ${d.day}`; document.getElementById('detail-panel').classList.add('open'); renderChart(); }
-        function switchChart(t) { chartType = t; renderChart(); }
+        
+        function showDetail(d) { 
+            closeAllModes(); 
+            currentRouteData = d; 
+            document.getElementById('p-day').innerText = `Day ${d.day}`; 
+            
+            // FIX: SET DATE CORRECTLY
+            document.getElementById('p-date').innerText = d.date || 'Unknown Date'; 
+            document.getElementById('p-dist').innerText = d.distance; 
+            document.getElementById('p-time').innerText = d.duration; 
+            
+            document.getElementById('detail-panel').classList.add('open'); 
+            renderChart(); 
+        }
+        
+        // FIX: UPDATE TOGGLE CLASSES VISUALLY
+        function switchChart(t) { 
+            chartType = t; 
+            document.getElementById('btn-ele').className = `chart-toggle ${t === 'ele' ? 'active' : ''}`;
+            document.getElementById('btn-speed').className = `chart-toggle ${t === 'speed' ? 'active' : ''}`;
+            renderChart(); 
+        }
 
         function renderChart() {
             if(!currentRouteData) return;
             const ctx = document.getElementById('elChart').getContext('2d');
             if(activeChart) activeChart.destroy();
             const isEle = chartType === 'ele';
-            const labels = Array.from({length: currentRouteData.elevation.length}, (_, i) => ((i / (currentRouteData.elevation.length - 1)) * parseFloat(currentRouteData.distance)).toFixed(1));
+            const dist = parseFloat(currentRouteData.distance);
+            const len = currentRouteData.elevation.length;
+            const labels = Array.from({length: len}, (_, i) => ((i / (len - 1)) * dist).toFixed(1));
+
             activeChart = new Chart(ctx, {
                 type: 'line',
                 data: { labels: labels, datasets: [{ data: isEle ? currentRouteData.elevation : currentRouteData.speed, borderColor: isEle ? '#e63946' : '#457b9d', backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, onClick: (e) => { const pts = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true); if(pts.length) { const pct = pts[0].index / currentRouteData.elevation.length; map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14); } }, scales: { x: { display: true }, y: { display: true } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, onClick: (e) => { const pts = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true); if(pts.length) { const pct = pts[0].index / len; map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14); } }, scales: { x: { display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } }, y: { display: true, title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#f1f5f9', borderDash: [4, 4] } } } }
             });
         }
     </script>
