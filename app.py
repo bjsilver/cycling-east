@@ -36,11 +36,12 @@ def simplify_route(coords, threshold_meters=30):
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
-def load_data_v66():
+def load_data_final():
     routes = []
     total_dist = 0
     file_dates = {}
     
+    # 1. Load Trip Data (Routes)
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r') as f:
@@ -51,8 +52,10 @@ def load_data_v66():
                     routes.append(r)
                 total_dist = trip.get('total_distance', 0)
                 file_dates = trip.get('file_dates', {})
-        except: pass
+        except Exception as e:
+            print(f"Error loading {DATA_FILE}: {e}")
 
+    # 2. Load Stages
     stages = []
     if os.path.exists(STAGES_DIR):
         stage_files = sorted([f for f in os.listdir(STAGES_DIR) if f.endswith('.json')], key=natural_sort_key)
@@ -61,7 +64,10 @@ def load_data_v66():
                 with open(os.path.join(STAGES_DIR, sf), 'r') as f:
                     d = json.load(f)
                     s = str(d.get('start_index',0)); e = str(d.get('end_index',0))
-                    d['date_range'] = f"{file_dates.get(s,'?')} - {file_dates.get(e,'?')}"
+                    # Fallback to 'date_range' in json if not found in lookup
+                    if 'date_range' not in d:
+                        d['date_range'] = f"{file_dates.get(s,'?')} - {file_dates.get(e,'?')}"
+                    
                     folder = f"{len(stages)+1:02d}"
                     lpath = os.path.join("static", "images", folder)
                     urls = []
@@ -71,8 +77,10 @@ def load_data_v66():
                                 urls.append(f"{IMG_BASE_URL}/{folder}/{fn}")
                     d['images'] = urls
                     stages.append(d)
-            except: pass
+            except Exception as e:
+                print(f"Error loading stage {sf}: {e}")
 
+    # 3. Load Stories
     stories = []
     if os.path.exists(STORIES_DIR):
         for sf in sorted(os.listdir(STORIES_DIR)):
@@ -99,22 +107,18 @@ def load_data_v66():
                             if 'route_segment_id' in s: s['route_segment_ids'] = [s['route_segment_id']]
                             else: s['route_segment_ids'] = []
                         
-                        prefix = s.get('img_prefix', '')
                         max_prog = 0
                         if 'chapters' in s:
                             for chap in s['chapters']:
                                 if 'progress' in chap and chap['progress'] > max_prog: max_prog = chap['progress']
-                                if prefix and not chap['image'].startswith('http'):
-                                    chap['image'] = prefix + chap['image']
                         
                         s['max_progress'] = max_prog if max_prog > 0 else 1.0
                         s['thumb'] = s['chapters'][0].get('image', '') if 'chapters' in s and s['chapters'] else ""
                         stories.append(s)
-                except: pass
+                except Exception as e:
+                    print(f"Error loading story {sf}: {e}")
 
     return routes, stages, stories, total_dist
-
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v66()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -164,18 +168,32 @@ HTML_TEMPLATE = """
         .ctrl-btn { width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 18px; color: var(--text); transition: 0.2s; }
         .ctrl-btn:hover { transform: scale(1.1); }
 
-        /* CHAPTERS BUTTON - Z-INDEX BOOSTED TO FIX CLICKABILITY */
+        /* CHAPTERS BUTTON - Z-INDEX 5000 TO ENSURE CLICKABLE */
         .start-btn-container { position: fixed; bottom: 40px; left: 40px; z-index: 5000; transition: opacity 0.5s; pointer-events: auto; }
         .start-btn { background: white; color: var(--text); border: 1px solid var(--text); padding: 15px 40px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 3px; cursor: pointer; transition: 0.3s; }
         .start-btn:hover { background: var(--text); color: white; }
 
-        /* NAV BAR */
-        .nav-container { position: fixed; bottom: 0; left: 0; width: 100%; height: 90px; background: white; z-index: 500; display: grid; grid-template-columns: 50px 1fr 50px 60px; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); transform: translateY(100%); transition: transform 0.5s ease; pointer-events: auto; }
+        /* NAVIGATION BAR - Z-INDEX 6000 */
+        .nav-container {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 90px;
+            background: white; z-index: 6000;
+            display: grid; grid-template-columns: 50px 1fr 50px 60px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+            transform: translateY(100%); transition: transform 0.5s ease;
+            pointer-events: auto;
+        }
         body.journey-mode .nav-container { transform: translateY(0); }
         .nav-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px; color: #94a3b8; transition: background 0.2s; background: #fff; }
         .nav-btn:hover { background: #f8fafc; color: var(--accent); }
         .nav-btn.close { border-left: 1px solid #e2e8f0; color: #000; font-size: 28px; font-weight: 300; }
-        .nav-scroll-area { overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; display: flex; align-items: flex-end; padding-bottom: 25px; padding-left: 60px; padding-right: 60px; }
+        
+        /* SCROLL AREA WITH PADDING */
+        .nav-scroll-area { 
+            overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; 
+            display: flex; align-items: flex-end; 
+            padding-bottom: 25px; 
+            padding-left: 60px; padding-right: 60px; 
+        }
         .nav-scroll-area::-webkit-scrollbar { display: none; }
         .timeline-track { position: relative; height: 4px; background: #e2e8f0; margin: 0 auto; min-width: 100%; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); transition: width 0.5s; }
@@ -196,24 +214,40 @@ HTML_TEMPLATE = """
         body.story-mode .story-exit-btn { display: flex; }
         body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
 
+        /* ICONS & DOTS */
+        .story-marker-wrap { position: relative; width: 0; height: 0; }
+        .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .story-dot svg { width: 16px; height: 16px; fill: white; }
+        .story-bubble { position: absolute; bottom: 20px; left: -100px; width: 200px; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'Playfair Display', serif; font-weight: bold; font-style: italic; color: var(--story); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(10px) scale(0.8); transition: 0.3s; visibility: hidden; }
+        .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
+        .map-zoomed-in .story-bubble { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
+        
+        .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
+        .bike-inner { display: inline-block; transform: scaleX(-1); }
+        .bike-icon.visible { opacity: 1; }
+
         /* PANELS */
         #detail-panel { position: fixed; bottom: 40px; right: 30px; width: 400px; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; transform: translateY(200%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; pointer-events: auto; }
         #detail-panel.open { transform: translateY(0); }
         #stage-card { position: fixed; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
         #stage-card.visible { transform: translateX(0); }
-        
-        @media (max-width: 768px) {
-            #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); }
-            #stage-card.visible { transform: translateY(0); }
-            #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; }
-            #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; }
-            .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; }
-            .story-card.active { opacity: 1; transform: scale(1); }
-            .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; }
+        @media (max-width: 768px) { 
+            #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); } 
+            #stage-card.visible { transform: translateY(0); } 
+            #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; } 
+            #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; } 
+            .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; } 
+            .story-card.active { opacity: 1; transform: scale(1); } 
+            .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } 
         }
 
-        /* GALLERY */
-        #gallery-window { position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); display: none; flex-direction: column; overflow: hidden; z-index: 9999; }
+        /* GALLERY WINDOW */
+        #gallery-window { 
+            position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; 
+            background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); 
+            display: none; flex-direction: column; overflow: hidden; z-index: 9999; 
+        }
         #gallery-window.visible { display: flex; animation: popup 0.3s ease; opacity: 1; pointer-events: auto; }
         @keyframes popup { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         #gallery-window.fullscreen { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; max-width: none; max-height: none; border-radius: 0; }
@@ -227,20 +261,15 @@ HTML_TEMPLATE = """
         .gal-content img, .gal-content video { max-width: 100%; max-height: 100%; object-fit: contain; }
         .gal-touch-area { position: absolute; top: 0; height: 100%; width: 25%; z-index: 100; cursor: pointer; }
         .gal-touch-left { left: 0; } .gal-touch-right { right: 0; }
-        
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
         .thumb-wrap { flex: 0 0 100px; height: 70px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
         .chart-toggle { cursor: pointer; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #eee; color: #666; }
         .chart-toggle.active { background: var(--accent); color: white; }
         .dev-label { color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900; text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff; white-space: nowrap; pointer-events: none; }
-        .story-marker-wrap { position: relative; width: 0; height: 0; }
-        .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        .story-dot svg { width: 16px; height: 16px; fill: white; }
-        .story-bubble { position: absolute; bottom: 20px; left: -100px; width: 200px; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'Playfair Display', serif; font-weight: bold; font-style: italic; color: var(--story); pointer-events: auto; cursor: pointer; opacity: 0; transform: translateY(10px) scale(0.8); transition: 0.3s; visibility: hidden; }
-        .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
-        .map-zoomed-in .story-bubble { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
+        .scroll-hint { position: fixed; bottom: 30px; left: 75%; transform: translateX(-50%); color: #000; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.8); animation: bounce 2s infinite; opacity: 0; transition: opacity 0.5s; z-index: 3000; pointer-events: none; }
+        .scroll-hint::after { content: 'SCROLL ↓'; }
+        @media (max-width: 768px) { .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } }
         .map-chapter-thumb { width: 40px !important; height: 40px !important; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: 0.3s; }
         .map-chapter-thumb img { width: 100% !important; height: 100% !important; object-fit: cover !important; margin: 0 !important; }
         .map-chapter-thumb.visible { opacity: 1; transform: translateY(0); }
@@ -279,12 +308,15 @@ HTML_TEMPLATE = """
         </div>
         <div class="flex justify-between items-end mb-2 pb-2 border-b border-slate-100">
             <div class="flex gap-4 mono text-[10px] text-slate-500"><span><b id="p-dist"></b> KM</span><span><b id="p-time"></b> RIDING</span></div>
-            <div class="flex gap-1"><span id="btn-ele" class="chart-toggle active" onclick="switchChart('ele')">ELEV</span><span id="btn-speed" class="chart-toggle" onclick="switchChart('speed')">SPEED</span></div>
+            <div class="flex gap-1">
+                <span id="btn-ele" class="chart-toggle active" onclick="switchChart('ele')">ELEV</span>
+                <span id="btn-speed" class="chart-toggle" onclick="switchChart('speed')">SPEED</span>
+            </div>
         </div>
         <div class="h-24 md:h-40 w-full"><canvas id="elChart"></canvas></div>
     </div>
     
-    <div class="nav-container interactive">
+    <div class="nav-container interactive" id="nav-container">
         <div class="nav-btn" onclick="scrollNav(-1)">‹</div>
         <div class="nav-scroll-area" id="nav-scroll-area">
             <div class="timeline-track" id="timeline-track"><div class="timeline-fill" id="timeline-fill"></div></div>
@@ -558,6 +590,42 @@ HTML_TEMPLATE = """
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, onClick: (e) => { const pts = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true); if(pts.length) { const pct = pts[0].index / len; map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14); } }, scales: { x: { display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } }, y: { display: true, title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#f1f5f9', borderDash: [4, 4] } } } }
             });
         }
+        
+        function startJourney() {
+            console.log("Starting Journey");
+            closeAllModes();
+            userInteracting = true; shrinkHero();
+            document.body.classList.add('journey-mode');
+            document.getElementById('chapter-btn-wrap').style.display = 'none';
+            setupTimeline();
+            
+            // Force nav container to show (safety measure)
+            const nav = document.getElementById('nav-container');
+            nav.style.transform = 'translateY(0)';
+            
+            document.getElementById('nav-scroll-area').scrollLeft = 0;
+        }
+
+        function setupTimeline() {
+            const track = document.getElementById('timeline-track');
+            if(track.querySelectorAll('.nav-dot').length === 0) {
+                const minWidth = Math.max(100, STAGES.length * 15); 
+                track.style.minWidth = isMobile ? "200%" : `${minWidth}%`;
+                STAGES.forEach((s, i) => {
+                    const d = document.createElement('div'); d.className = 'nav-dot';
+                    d.style.left = `${(i / (STAGES.length - 1)) * 100}%`;
+                    d.onclick = () => setStage(i);
+                    d.innerHTML = `<div class="dot-label">${s.title}</div>`; 
+                    track.appendChild(d);
+                });
+            }
+        }
+        
+        // APP ROUTE INCLUDED TO ENSURE DATA LOADS
+        // @app.route('/')
+        // def index():
+        //     routes, stages, stories, dist = load_data_final()
+        //     return render_template_string(HTML_TEMPLATE, routes=routes, stages=stages, stories=stories, distance=dist)
     </script>
 </body>
 </html>
