@@ -33,6 +33,7 @@ def simplify_route(coords, threshold_meters=30):
     if new_coords[-1] != coords[-1]: new_coords.append(coords[-1])
     return new_coords
 
+# Helper for Natural Sort (so '11' comes after '2')
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
@@ -108,6 +109,7 @@ def load_data_final():
                             else: s['route_segment_ids'] = []
                         
                         max_prog = 0
+                        prefix = s.get('img_prefix', '')
                         if 'chapters' in s:
                             for chap in s['chapters']:
                                 if 'progress' in chap and chap['progress'] > max_prog: max_prog = chap['progress']
@@ -382,6 +384,7 @@ HTML_TEMPLATE = """
         let savedMapState = null, storyChapters = [], userInteracting = false;
         let currStg = 0, currImg = 0;
 
+        // Render Routes
         routes.forEach((route, idx) => {
             allPoints.push(...route.coords);
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
@@ -392,6 +395,7 @@ HTML_TEMPLATE = """
             hit.on('click', (e) => { L.DomEvent.stopPropagation(e); showDetail(route); });
         });
 
+        // Render Story Markers
         STORIES.forEach(story => {
             const html = `<div class="story-marker-wrap"><div class="story-dot"><svg viewBox="0 0 512 512"><path d="M496 128v16a8 8 0 0 1-8 8h-24v12c0 6.627-5.373 12-12 12H60c-6.627 0-12-5.373-12-12v-12H24a8 8 0 0 1-8-8v-16a8 8 0 0 1 4.941-7.392l232-88a7.996 7.996 0 0 1 6.118 0l232 88A8 8 0 0 1 496 128zm-24 104v144c0 17.673-14.327 32-32 32H72c-17.673 0-32-14.327-32-32V232c0-17.673 14.327-32 32-32h368c17.673 0 32 14.327 32 32zM80 400h352v-24H80v24zm352-56v-24H80v24h352z"/></svg></div><div class="story-bubble">${story.title}</div></div>`;
             const m = L.marker(story.location, { icon: L.divIcon({ className: 'story-div-icon', html: html }) }).addTo(map).on('click', (e) => { L.DomEvent.stopPropagation(e); startStory(story); });
@@ -402,10 +406,12 @@ HTML_TEMPLATE = """
         ['mousedown', 'touchstart', 'wheel', 'keydown'].forEach(evt => window.addEventListener(evt, () => { userInteracting = true; shrinkHero(); }));
         map.on('dragstart', () => { userInteracting = true; shrinkHero(); });
 
+        // UNIVERSAL CLOSE FUNCTION
         function closeAllModes() {
             document.body.classList.remove('journey-mode', 'story-mode');
             document.getElementById('stage-card').classList.remove('visible');
             document.getElementById('chapter-btn-wrap').style.display = 'block';
+            document.getElementById('nav-container').style.transform = 'translateY(100%)';
             closePanel();
             if(bikeMarker) map.removeLayer(bikeMarker);
             storyChapterMarkers.forEach(m => map.removeLayer(m));
@@ -438,6 +444,7 @@ HTML_TEMPLATE = """
             else el.classList.remove('map-zoomed-in');
         });
 
+        // --- DRAGGABLE GALLERY ---
         const galWin = document.getElementById('gallery-window');
         const galHead = document.getElementById('gal-header');
         let isDrag = false, sx, sy, lx, ly;
@@ -468,12 +475,14 @@ HTML_TEMPLATE = """
         function changeSlide(dir) { const imgs = STAGES[currStg].images; currImg = (currImg + dir + imgs.length) % imgs.length; updateGallery(); }
         function toggleFullscreen() { galWin.classList.toggle('fullscreen'); }
 
+        // --- MATH HELPERS ---
         function setupMath(p) { routeDistances = [0]; totalRouteLength = 0; for(let i=1; i<p.length; i++) { totalRouteLength += map.distance(p[i-1], p[i]); routeDistances.push(totalRouteLength); } }
         function getPtAtD(d) { for(let i=1; i<routeDistances.length; i++) { if(routeDistances[i] >= d) { const frac = (d - routeDistances[i-1]) / (routeDistances[i] - routeDistances[i-1]); return [currentStoryPoints[i-1][0] + (currentStoryPoints[i][0] - currentStoryPoints[i-1][0]) * frac, currentStoryPoints[i-1][1] + (currentStoryPoints[i][1] - currentStoryPoints[i-1][1]) * frac]; } } return currentStoryPoints[currentStoryPoints.length-1]; }
-        function forwardScroll(e) { document.getElementById('story-scroller').scrollTop += e.deltaY; }
 
+        // --- STORY MODE ---
         function startStory(s) {
-            closeAllModes(); userInteracting = true; shrinkHero();
+            closeAllModes(); 
+            userInteracting = true; shrinkHero();
             document.body.classList.add('story-mode'); 
             savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
             storyChapters = s.chapters || [];
@@ -514,7 +523,6 @@ HTML_TEMPLATE = """
             setTimeout(checkStoryScroll, 100);
         }
 
-        let lastScroll = 0;
         function checkStoryScroll() {
             const sc = document.getElementById('story-scroller');
             const cards = document.querySelectorAll('.story-card');
@@ -552,27 +560,66 @@ HTML_TEMPLATE = """
             });
         }
 
-        function exitStory() { closeAllModes(); if(savedMapState) map.flyTo(savedMapState.center, savedMapState.zoom, { duration: 1.5 }); }
-        function exitJourneyMode() { closeAllModes(); }
-        function resetView() { closeAllModes(); let bp = allPoints; if(isMobile) bp = allPoints.slice(0, Math.floor(allPoints.length * 0.2)); map.fitBounds(L.polyline(bp).getBounds(), { padding: [50, 50], duration: 1.5 }); }
-        function scrollNav(dir) { document.getElementById('nav-scroll-area').scrollBy({ left: dir * 200, behavior: 'smooth' }); }
-        function closePanel() { document.getElementById('detail-panel').classList.remove('open'); }
-        
+        // --- JOURNEY (CHAPTERS) MODE ---
+        function startJourney() { 
+            closeAllModes(); 
+            userInteracting = true; shrinkHero();
+            document.body.classList.add('journey-mode'); 
+            document.getElementById('chapter-btn-wrap').style.display = 'none';
+            setupTimeline();
+            
+            // Force Show Navbar
+            document.getElementById('nav-container').style.transform = 'translateY(0)';
+            document.getElementById('nav-scroll-area').scrollLeft = 0;
+        }
+
+        function setupTimeline() {
+            const track = document.getElementById('timeline-track');
+            if(track.querySelectorAll('.nav-dot').length === 0) {
+                const minWidth = Math.max(100, STAGES.length * 15); 
+                track.style.minWidth = isMobile ? "200%" : `${minWidth}%`;
+                STAGES.forEach((s, i) => {
+                    const d = document.createElement('div'); d.className = 'nav-dot';
+                    d.style.left = `${(i / (STAGES.length - 1)) * 100}%`;
+                    d.onclick = () => setStage(i);
+                    d.innerHTML = `<div class="dot-label">${s.title}</div>`; 
+                    track.appendChild(d);
+                });
+            }
+        }
+
+        function setStage(index) {
+            const s = STAGES[index]; 
+            document.getElementById('st-title').innerText = s.title; 
+            document.getElementById('st-date').innerText = s.date_range; 
+            document.getElementById('st-desc').innerText = s.description; 
+            
+            const tc = document.getElementById('st-thumbs'); tc.innerHTML = ''; 
+            s.images.forEach((u, i) => tc.innerHTML += `<div class="thumb-wrap" onclick="openLB(${index}, ${i})"><img src="${u}"></div>`); 
+            
+            document.getElementById('timeline-fill').style.width = `${(index / (STAGES.length - 1)) * 100}%`; 
+            document.querySelectorAll('.nav-dot').forEach((d, i) => d.classList.toggle('active', i === index)); 
+            document.getElementById('stage-card').classList.add('visible'); 
+            
+            let pts = []; for(let i=s.start_index; i<=s.end_index; i++) { if(routes[i]) pts.push(...routes[i].coords); } 
+            if(pts.length) map.flyToBounds(L.polyline(pts).getBounds(), { padding: [100,100], duration: 2 });
+        }
+
+        // --- GRAPH MODE ---
         function showDetail(d) { 
             closeAllModes(); 
+            userInteracting = true; shrinkHero();
             currentRouteData = d; 
             document.getElementById('p-day').innerText = `Day ${d.day}`; 
-            
-            // FIX: SET DATE CORRECTLY
             document.getElementById('p-date').innerText = d.date || 'Unknown Date'; 
             document.getElementById('p-dist').innerText = d.distance; 
             document.getElementById('p-time').innerText = d.duration; 
-            
             document.getElementById('detail-panel').classList.add('open'); 
-            renderChart(); 
+            
+            // Default to Elevation when opening
+            switchChart('ele'); 
         }
         
-        // FIX: UPDATE TOGGLE CLASSES VISUALLY
         function switchChart(t) { 
             chartType = t; 
             document.getElementById('btn-ele').className = `chart-toggle ${t === 'ele' ? 'active' : ''}`;
@@ -591,59 +638,50 @@ HTML_TEMPLATE = """
 
             activeChart = new Chart(ctx, {
                 type: 'line',
-                data: { labels: labels, datasets: [{ data: isEle ? currentRouteData.elevation : currentRouteData.speed, borderColor: isEle ? '#e63946' : '#457b9d', backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, onClick: (e) => { const pts = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true); if(pts.length) { const pct = pts[0].index / len; map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14); } }, scales: { x: { display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } }, y: { display: true, title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#f1f5f9', borderDash: [4, 4] } } } }
+                data: { 
+                    labels: labels, 
+                    datasets: [{ 
+                        data: isEle ? currentRouteData.elevation : currentRouteData.speed, 
+                        borderColor: isEle ? '#e63946' : '#457b9d', 
+                        backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', 
+                        fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 
+                    }] 
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, 
+                    onClick: (e) => { 
+                        const pts = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true); 
+                        if(pts.length) { 
+                            const pct = pts[0].index / len; 
+                            map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14); 
+                        } 
+                    }, 
+                    scales: { 
+                        x: { display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } }, 
+                        y: { display: true, title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#f1f5f9', borderDash: [4, 4] } } 
+                    } 
+                }
             });
         }
-        
-        function startJourney() {
-            console.log("Starting Journey");
-            closeAllModes();
-            userInteracting = true; shrinkHero();
-            document.body.classList.add('journey-mode');
-            document.getElementById('chapter-btn-wrap').style.display = 'none';
-            setupTimeline();
-            
-            // Force nav container to show (safety measure)
-            const nav = document.getElementById('nav-container');
-            nav.style.transform = 'translateY(0)';
-            
-            document.getElementById('nav-scroll-area').scrollLeft = 0;
-        }
 
-        function setupTimeline() {
-            const track = document.getElementById('timeline-track');
-            if(track.querySelectorAll('.nav-dot').length === 0) {
-                const minWidth = Math.max(100, STAGES.length * 15); 
-                track.style.minWidth = isMobile ? "200%" : `${minWidth}%`;
-                STAGES.forEach((s, i) => {
-                    const d = document.createElement('div'); d.className = 'nav-dot';
-                    d.style.left = `${(i / (STAGES.length - 1)) * 100}%`;
-                    d.onclick = () => setStage(i);
-                    d.innerHTML = `<div class="dot-label">${s.title}</div>`; 
-                    track.appendChild(d);
-                });
-            }
-        }
+        // --- GLOBAL EXITS ---
+        function exitStory() { closeAllModes(); if(savedMapState) map.flyTo(savedMapState.center, savedMapState.zoom, { duration: 1.5 }); }
+        function exitJourneyMode() { closeAllModes(); }
+        function closePanel() { document.getElementById('detail-panel').classList.remove('open'); }
+        function scrollNav(dir) { document.getElementById('nav-scroll-area').scrollBy({ left: dir * 200, behavior: 'smooth' }); }
+        function resetView() { closeAllModes(); let bp = allPoints; if(isMobile) bp = allPoints.slice(0, Math.floor(allPoints.length * 0.2)); map.fitBounds(L.polyline(bp).getBounds(), { padding: [50, 50], duration: 1.5 }); }
         
-        // APP ROUTE INCLUDED TO ENSURE DATA LOADS
-        @app.route('/')
-        def index():
-            routes, stages, stories, dist = load_data_final()
-            return render_template_string(HTML_TEMPLATE, routes=routes, stages=stages, stories=stories, distance=dist)
     </script>
 </body>
 </html>
 """
 
+# IMPORTANT FLASK ROUTE: Do NOT delete this!
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE, 
-                                  routes=CACHED_ROUTES, 
-                                  stages=CACHED_STAGES, 
-                                  stories=CACHED_STORIES,
-                                  distance=CACHED_DIST)
+    routes, stages, stories, dist = load_data_final()
+    return render_template_string(HTML_TEMPLATE, routes=routes, stages=stages, stories=stories, distance=dist)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)
