@@ -36,7 +36,7 @@ def simplify_route(coords, threshold_meters=30):
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
-def load_data_v62():
+def load_data_v63():
     routes = []
     total_dist = 0
     file_dates = {}
@@ -114,7 +114,7 @@ def load_data_v62():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v62()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v63()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -153,15 +153,15 @@ HTML_TEMPLATE = """
         
         body.shrunk .hero-content { top: 30px; left: 30px; transform: translateY(0) scale(0.5); opacity: 0.8; }
         
-        /* GRADIENT: Visible initially (Opacity 1), Hidden when shrunk (Opacity 0) */
+        /* HERO GRADIENT */
         .hero-gradient { 
             position: fixed; inset: 0; width: 45%; 
             background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); 
             pointer-events: none; z-index: 50; 
             transition: opacity 0.8s ease; 
-            opacity: 1; /* VISIBLE START */
+            opacity: 1; 
         }
-        body.shrunk .hero-gradient { opacity: 0; } /* HIDDEN AFTER INTERACTION */
+        body.shrunk .hero-gradient { opacity: 0; }
 
         /* CONTROLS */
         .ctrl-group { position: fixed; top: 20px; right: 20px; z-index: 6000; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
@@ -185,7 +185,15 @@ HTML_TEMPLATE = """
         .nav-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px; color: #94a3b8; transition: background 0.2s; background: #fff; }
         .nav-btn:hover { background: #f8fafc; color: var(--accent); }
         .nav-btn.close { border-left: 1px solid #e2e8f0; color: #000; font-size: 28px; font-weight: 300; }
-        .nav-scroll-area { overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; display: flex; align-items: flex-end; padding-bottom: 25px; padding-left: 40px; padding-right: 40px; }
+        
+        /* SCROLL AREA WITH PADDING */
+        .nav-scroll-area { 
+            overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; 
+            display: flex; align-items: flex-end; 
+            padding-bottom: 25px; 
+            padding-left: 60px; padding-right: 60px; 
+        }
+        .nav-scroll-area::-webkit-scrollbar { display: none; }
         .timeline-track { position: relative; height: 4px; background: #e2e8f0; margin: 0 auto; min-width: 100%; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); transition: width 0.5s; }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; transition: transform 0.2s; }
@@ -200,17 +208,19 @@ HTML_TEMPLATE = """
         .story-card.active { opacity: 1; transform: scale(1.02); }
         .story-card p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem; color: #1d3557; text-align: center; margin-bottom: 20px; order: 1; }
         .story-card img { width: 100%; height: auto; object-fit: cover; border-radius: 4px; order: 2; }
+        
         .story-exit-btn { display: none; background: white; color: var(--text); border: 2px solid #e2e8f0; }
         body.story-mode .story-exit-btn { display: flex; }
 
-        /* DEV MODE LABELS */
+        /* HIDE STORY MARKERS IN STORY MODE */
+        body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+
         .dev-label {
             color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900;
             text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff;
             white-space: nowrap; pointer-events: none;
         }
 
-        /* ICONS & DOTS */
         .story-marker-wrap { position: relative; width: 0; height: 0; }
         .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
@@ -219,16 +229,23 @@ HTML_TEMPLATE = """
         .map-zoomed-in .story-dot { opacity: 0; pointer-events: none; } 
         .map-zoomed-in .story-bubble { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
         
-        body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
-
         .bike-icon { font-size: 36px; transition: transform 0.1s linear, opacity 0.5s; opacity: 0; z-index: 2500 !important; }
         .bike-inner { display: inline-block; transform: scaleX(-1); }
         .bike-icon.visible { opacity: 1; }
 
-        /* GRAPH POPUP */
+        /* GALLERY (Z-INDEX FIX) */
+        #gallery-window { 
+            position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; 
+            background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); 
+            display: none; flex-direction: column; overflow: hidden; z-index: 9999; 
+        }
+        #gallery-window.visible { display: flex; animation: popup 0.3s ease; opacity: 1; pointer-events: auto; }
+        @keyframes popup { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        @media (max-width: 768px) { #gallery-window { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; } .gal-header { padding-top: 10px; } .gal-close { position: absolute; bottom: 20px; right: 20px; background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; } }
+        
         #detail-panel { position: fixed; bottom: 40px; right: 30px; width: 400px; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; transform: translateY(200%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; pointer-events: auto; }
         #detail-panel.open { transform: translateY(0); }
-        
         #stage-card { position: fixed; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
         #stage-card.visible { transform: translateX(0); }
         
@@ -242,9 +259,6 @@ HTML_TEMPLATE = """
             .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; }
         }
 
-        #gallery-window { position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); display: none; flex-direction: column; overflow: hidden; z-index: 5000; }
-        #gallery-window.visible { display: flex; animation: popup 0.3s ease; }
-        @media (max-width: 768px) { #gallery-window { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; } .gal-header { padding-top: 10px; } .gal-close { position: absolute; bottom: 20px; right: 20px; background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; } }
         .gal-header { height: 30px; background: #f1f5f9; display: flex; justify-content: flex-end; align-items: center; padding-right: 10px; }
         .gal-close { cursor: pointer; font-size: 24px; color: #94a3b8; }
         .gal-content { position: relative; flex: 1; background: black; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -272,7 +286,7 @@ HTML_TEMPLATE = """
     <div class="ctrl-group interactive">
         <div id="map-toggle-btn" class="ctrl-btn" onclick="cycleMap()" title="Change Map Type">🛰</div>
         <div class="ctrl-btn" onclick="resetView()" title="Reset View">&#8635;</div>
-        <div class="ctrl-btn story-exit-btn" onclick="exitStory()" title="Exit Story">×</div>
+        <div id="exit-story-btn" class="ctrl-btn story-exit-btn" onclick="exitStory()" title="Exit Story">×</div>
     </div>
 
     <div class="hero">
@@ -334,13 +348,11 @@ HTML_TEMPLATE = """
         const isMobile = window.innerWidth < 768;
         
         var map = L.map('map', { zoomControl: false, attributionControl: false, renderer: L.canvas() }).setView([50, 0], 4);
-        
         const layers = {
             voyager: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }),
             satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Map data: © OpenStreetMap SRTM | Map style: © OpenTopoMap' })
         };
-        
         layers.voyager.addTo(map);
         let currentMapMode = 'voyager';
 
@@ -353,12 +365,16 @@ HTML_TEMPLATE = """
             layers[currentMapMode].addTo(map);
         }
 
+        // GLOBALS DEFINED AT TOP
+        let galWin = document.getElementById('gallery-window');
         let activeChart = null, currentRouteData = null, routeLayers = [];
         let bikeMarker = null, storyChapterMarkers = [], currentStoryPoints = [], routeDistances = [], totalRouteLength = 0;
         let allPoints = [], devLabels = [], storyMarkers = [], isDevMode = false;
         let savedMapState = null, storyChapters = [], userInteracting = false;
+        let currStg = 0, currImg = 0;
         let chartType = 'ele';
 
+        // --- MAP DATA ---
         routes.forEach((route, idx) => {
             allPoints.push(...route.coords);
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
@@ -372,6 +388,7 @@ HTML_TEMPLATE = """
         STORIES.forEach(story => {
             const html = `<div class="story-marker-wrap"><div class="story-dot"><svg viewBox="0 0 512 512"><path d="M496 128v16a8 8 0 0 1-8 8h-24v12c0 6.627-5.373 12-12 12H60c-6.627 0-12-5.373-12-12v-12H24a8 8 0 0 1-8-8v-16a8 8 0 0 1 4.941-7.392l232-88a7.996 7.996 0 0 1 6.118 0l232 88A8 8 0 0 1 496 128zm-24 104v144c0 17.673-14.327 32-32 32H72c-17.673 0-32-14.327-32-32V232c0-17.673 14.327-32 32-32h368c17.673 0 32 14.327 32 32zM80 400h352v-24H80v24zm352-56v-24H80v24h352z"/></svg></div><div class="story-bubble">${story.title}</div></div>`;
             const m = L.marker(story.location, { icon: L.divIcon({ className: 'story-div-icon', html: html }) }).addTo(map).on('click', (e) => { L.DomEvent.stopPropagation(e); startStory(story); });
+            storyMarkers.push({ marker: m, dayIdx: story.closest_segment });
         });
 
         function shrinkHero() { if(userInteracting) document.body.classList.add('shrunk'); }
@@ -391,6 +408,11 @@ HTML_TEMPLATE = """
             if(e.key === '`' || e.key === '~') { 
                 isDevMode = !isDevMode; 
                 devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); 
+            }
+            if(galWin.classList.contains('visible')) {
+                if(e.key === 'ArrowLeft') changeSlide(-1);
+                if(e.key === 'ArrowRight') changeSlide(1);
+                if(e.key === 'Escape') closeGallery();
             }
         });
 
@@ -413,6 +435,7 @@ HTML_TEMPLATE = """
             else el.classList.remove('map-zoomed-in');
         });
 
+        // --- FUNCTIONS ---
         function startJourney() { 
             closeAllModes(); userInteracting = true; shrinkHero();
             document.body.classList.add('journey-mode'); 
@@ -447,8 +470,12 @@ HTML_TEMPLATE = """
         function startStory(s) {
             closeAllModes(); userInteracting = true; shrinkHero();
             document.body.classList.add('story-mode'); 
+            // HIDE STORY BUTTON IN STORY MODE
+            document.getElementById('story-exit-btn').style.display = 'flex';
+            
             savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
             storyChapters = s.chapters || [];
+            storyChapterMarkers = [];
             
             const sc = document.getElementById('story-scroller'); sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
             const spacer = document.createElement('div'); spacer.style.height = isMobile ? '1px' : '50vh'; spacer.style.width = isMobile ? '50vw' : '100%'; spacer.style.flexShrink = '0'; sc.appendChild(spacer);
@@ -463,7 +490,7 @@ HTML_TEMPLATE = """
                     bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
                     setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
                     s.chapters.forEach((c, i) => {
-                        const pt = getPtAtD(c.progress * totalRouteLength);
+                        const pt = getPtAtD(c.progress * s.max_progress * totalRouteLength);
                         const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
                         setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
                     });
@@ -481,6 +508,8 @@ HTML_TEMPLATE = """
             let currS = isMobile ? sc.scrollLeft : sc.scrollTop;
             if(totalS <= 0 || cards.length < 2) return;
             
+            if(currS > 10) document.getElementById('scroll-hint').style.opacity = '0';
+
             let firstC = isMobile ? (cards[0].offsetLeft + cards[0].offsetWidth/2) : (cards[0].offsetTop + cards[0].offsetHeight/2);
             let lastC = isMobile ? (cards[cards.length-1].offsetLeft + cards[cards.length-1].offsetWidth/2) : (cards[cards.length-1].offsetTop + cards[cards.length-1].offsetHeight/2);
             let sCenter = isMobile ? (currS + window.innerWidth/2) : (currS + window.innerHeight/2);
@@ -564,6 +593,9 @@ HTML_TEMPLATE = """
         function updateGallery() { const url = STAGES[currStg].images[currImg]; const isV = url.match(/\.(mp4|mov)$/i); const v = document.getElementById('gal-vid'), i = document.getElementById('gal-img'); if(isV) { i.style.display='none'; v.style.display='block'; v.src=url; v.play(); } else { v.pause(); v.style.display='none'; i.style.display='block'; i.src=url; } }
         function changeSlide(d) { const imgs = STAGES[currStg].images; currImg = (currImg + d + imgs.length) % imgs.length; updateGallery(); }
         function toggleMaximize() { galWin.classList.toggle('maximized'); }
+        
+        function setupMath(p) { routeDistances = [0]; totalRouteLength = 0; for(let i=1; i<p.length; i++) { totalRouteLength += map.distance(p[i-1], p[i]); routeDistances.push(totalRouteLength); } }
+        function getPtAtD(d) { for(let i=1; i<routeDistances.length; i++) { if(routeDistances[i] >= d) { const frac = (d - routeDistances[i-1]) / (routeDistances[i] - routeDistances[i-1]); return [currentStoryPoints[i-1][0] + (currentStoryPoints[i][0] - currentStoryPoints[i-1][0]) * frac, currentStoryPoints[i-1][1] + (currentStoryPoints[i][1] - currentStoryPoints[i-1][1]) * frac]; } } return currentStoryPoints[currentStoryPoints.length-1]; }
     </script>
 </body>
 </html>
