@@ -111,6 +111,8 @@ def load_data_final():
                         if 'chapters' in s:
                             for chap in s['chapters']:
                                 if 'progress' in chap and chap['progress'] > max_prog: max_prog = chap['progress']
+                                if prefix and not chap['image'].startswith('http'):
+                                    chap['image'] = prefix + chap['image']
                         
                         s['max_progress'] = max_prog if max_prog > 0 else 1.0
                         s['thumb'] = s['chapters'][0].get('image', '') if 'chapters' in s and s['chapters'] else ""
@@ -346,11 +348,14 @@ HTML_TEMPLATE = """
         <div class="scroll-hint" id="scroll-hint"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const routes = {{ routes|tojson }};
         const STAGES = {{ stages|tojson }};
         const STORIES = {{ stories|tojson }};
+    </script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
         const isMobile = window.innerWidth < 768;
         
         var map = L.map('map', { zoomControl: false, attributionControl: false, renderer: L.canvas() }).setView([50, 0], 4);
@@ -622,10 +627,10 @@ HTML_TEMPLATE = """
         }
         
         // APP ROUTE INCLUDED TO ENSURE DATA LOADS
-        // @app.route('/')
-        // def index():
-        //     routes, stages, stories, dist = load_data_final()
-        //     return render_template_string(HTML_TEMPLATE, routes=routes, stages=stages, stories=stories, distance=dist)
+        @app.route('/')
+        def index():
+            routes, stages, stories, dist = load_data_final()
+            return render_template_string(HTML_TEMPLATE, routes=routes, stages=stages, stories=stories, distance=dist)
     </script>
 </body>
 </html>
