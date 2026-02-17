@@ -36,7 +36,7 @@ def simplify_route(coords, threshold_meters=30):
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
-def load_data_v63():
+def load_data_v64():
     routes = []
     total_dist = 0
     file_dates = {}
@@ -114,7 +114,7 @@ def load_data_v63():
 
     return routes, stages, stories, total_dist
 
-CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v63()
+CACHED_ROUTES, CACHED_STAGES, CACHED_STORIES, CACHED_DIST = load_data_v64()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -152,15 +152,7 @@ HTML_TEMPLATE = """
         @media (max-width: 768px) { .hero h1 { font-size: 3.5rem; } .hero-content { left: 20px; } }
         
         body.shrunk .hero-content { top: 30px; left: 30px; transform: translateY(0) scale(0.5); opacity: 0.8; }
-        
-        /* HERO GRADIENT */
-        .hero-gradient { 
-            position: fixed; inset: 0; width: 45%; 
-            background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); 
-            pointer-events: none; z-index: 50; 
-            transition: opacity 0.8s ease; 
-            opacity: 1; 
-        }
+        .hero-gradient { position: fixed; inset: 0; width: 45%; background: linear-gradient(to right, rgba(241, 245, 249, 0.98), transparent); pointer-events: none; z-index: 50; transition: 0.8s ease; opacity: 1; }
         body.shrunk .hero-gradient { opacity: 0; }
 
         /* CONTROLS */
@@ -172,28 +164,13 @@ HTML_TEMPLATE = """
         .start-btn { background: white; color: var(--text); border: 1px solid var(--text); padding: 15px 40px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 3px; cursor: pointer; transition: 0.3s; }
         .start-btn:hover { background: var(--text); color: white; }
 
-        /* NAVIGATION BAR */
-        .nav-container {
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 90px;
-            background: white; z-index: 500;
-            display: grid; grid-template-columns: 50px 1fr 50px 60px;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
-            transform: translateY(100%); transition: transform 0.5s ease;
-            pointer-events: auto;
-        }
+        /* NAV BAR */
+        .nav-container { position: fixed; bottom: 0; left: 0; width: 100%; height: 90px; background: white; z-index: 500; display: grid; grid-template-columns: 50px 1fr 50px 60px; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); transform: translateY(100%); transition: transform 0.5s ease; pointer-events: auto; }
         body.journey-mode .nav-container { transform: translateY(0); }
         .nav-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px; color: #94a3b8; transition: background 0.2s; background: #fff; }
         .nav-btn:hover { background: #f8fafc; color: var(--accent); }
         .nav-btn.close { border-left: 1px solid #e2e8f0; color: #000; font-size: 28px; font-weight: 300; }
-        
-        /* SCROLL AREA WITH PADDING */
-        .nav-scroll-area { 
-            overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; 
-            display: flex; align-items: flex-end; 
-            padding-bottom: 25px; 
-            padding-left: 60px; padding-right: 60px; 
-        }
-        .nav-scroll-area::-webkit-scrollbar { display: none; }
+        .nav-scroll-area { overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; display: flex; align-items: flex-end; padding-bottom: 25px; padding-left: 60px; padding-right: 60px; }
         .timeline-track { position: relative; height: 4px; background: #e2e8f0; margin: 0 auto; min-width: 100%; }
         .timeline-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); transition: width 0.5s; }
         .nav-dot { position: absolute; top: -6px; width: 16px; height: 16px; background: #94a3b8; border: 3px solid white; border-radius: 50%; cursor: pointer; z-index: 50; transition: transform 0.2s; }
@@ -208,19 +185,14 @@ HTML_TEMPLATE = """
         .story-card.active { opacity: 1; transform: scale(1.02); }
         .story-card p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem; color: #1d3557; text-align: center; margin-bottom: 20px; order: 1; }
         .story-card img { width: 100%; height: auto; object-fit: cover; border-radius: 4px; order: 2; }
-        
         .story-exit-btn { display: none; background: white; color: var(--text); border: 2px solid #e2e8f0; }
         body.story-mode .story-exit-btn { display: flex; }
-
-        /* HIDE STORY MARKERS IN STORY MODE */
         body.story-mode .story-marker-wrap { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
 
-        .dev-label {
-            color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900;
-            text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff;
-            white-space: nowrap; pointer-events: none;
-        }
+        /* DEV MODE LABELS */
+        .dev-label { color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900; text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff; white-space: nowrap; pointer-events: none; }
 
+        /* ICONS & DOTS */
         .story-marker-wrap { position: relative; width: 0; height: 0; }
         .story-dot { position: absolute; top: -15px; left: -15px; width: 30px; height: 30px; background: var(--story); border: 2px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
@@ -233,39 +205,32 @@ HTML_TEMPLATE = """
         .bike-inner { display: inline-block; transform: scaleX(-1); }
         .bike-icon.visible { opacity: 1; }
 
-        /* GALLERY (Z-INDEX FIX) */
+        /* PANELS */
+        #detail-panel { position: fixed; bottom: 40px; right: 30px; width: 400px; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; transform: translateY(200%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; pointer-events: auto; }
+        #detail-panel.open { transform: translateY(0); }
+        #stage-card { position: fixed; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
+        #stage-card.visible { transform: translateX(0); }
+        @media (max-width: 768px) { #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); } #stage-card.visible { transform: translateY(0); } #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; } #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; } .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; } .story-card.active { opacity: 1; transform: scale(1); } .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } }
+
+        /* GALLERY WINDOW (DRAGGABLE) */
         #gallery-window { 
             position: fixed; top: 20px; right: 5%; width: 600px; max-width: 90vw; max-height: 85vh; 
             background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); 
             display: none; flex-direction: column; overflow: hidden; z-index: 9999; 
         }
-        #gallery-window.visible { display: flex; animation: popup 0.3s ease; opacity: 1; pointer-events: auto; }
-        @keyframes popup { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        #gallery-window.visible { display: flex; animation: popup 0.3s ease; }
+        #gallery-window.fullscreen { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; max-width: none; max-height: none; border-radius: 0; }
         
-        @media (max-width: 768px) { #gallery-window { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; } .gal-header { padding-top: 10px; } .gal-close { position: absolute; bottom: 20px; right: 20px; background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; } }
+        .gal-header { height: 40px; background: #f1f5f9; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; cursor: move; }
+        .gal-controls { display: flex; gap: 10px; }
+        .gal-btn { cursor: pointer; font-size: 20px; color: #64748b; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+        .gal-btn:hover { background: #e2e8f0; }
         
-        #detail-panel { position: fixed; bottom: 40px; right: 30px; width: 400px; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; transform: translateY(200%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 5px 30px rgba(0,0,0,0.15); z-index: 400; pointer-events: auto; }
-        #detail-panel.open { transform: translateY(0); }
-        #stage-card { position: fixed; top: 160px; left: 30px; width: 350px; max-height: 50vh; overflow-y: auto; scrollbar-width: none; background: var(--card-bg); backdrop-filter: blur(20px); border-radius: 12px; padding: 25px; transform: translateX(-150%); transition: transform 0.6s ease; pointer-events: auto; z-index: 400; }
-        #stage-card.visible { transform: translateX(0); }
-        
-        @media (max-width: 768px) {
-            #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); }
-            #stage-card.visible { transform: translateY(0); }
-            #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; }
-            #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; }
-            .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; }
-            .story-card.active { opacity: 1; transform: scale(1); }
-            .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; }
-        }
-
-        .gal-header { height: 30px; background: #f1f5f9; display: flex; justify-content: flex-end; align-items: center; padding-right: 10px; }
-        .gal-close { cursor: pointer; font-size: 24px; color: #94a3b8; }
         .gal-content { position: relative; flex: 1; background: black; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .gal-content img, .gal-content video { max-width: 100%; max-height: 100%; object-fit: contain; }
         .gal-touch-area { position: absolute; top: 0; height: 100%; width: 25%; z-index: 100; cursor: pointer; }
         .gal-touch-left { left: 0; } .gal-touch-right { right: 0; }
-        .gal-expand-btn { position: absolute; bottom: 15px; right: 15px; width: 30px; height: 30px; background: rgba(0,0,0,0.5); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; z-index: 200; }
+        
         .thumb-grid { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
         .thumb-wrap { flex: 0 0 100px; height: 70px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
@@ -273,7 +238,6 @@ HTML_TEMPLATE = """
         .chart-toggle.active { background: var(--accent); color: white; }
         .scroll-hint { position: fixed; bottom: 30px; left: 75%; transform: translateX(-50%); color: #000; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.8); animation: bounce 2s infinite; opacity: 0; transition: opacity 0.5s; z-index: 3000; pointer-events: none; }
         .scroll-hint::after { content: 'SCROLL ↓'; }
-        @media (max-width: 768px) { .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } }
         .map-chapter-thumb { width: 40px !important; height: 40px !important; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: 0.3s; }
         .map-chapter-thumb img { width: 100% !important; height: 100% !important; object-fit: cover !important; margin: 0 !important; }
         .map-chapter-thumb.visible { opacity: 1; transform: translateY(0); }
@@ -286,7 +250,7 @@ HTML_TEMPLATE = """
     <div class="ctrl-group interactive">
         <div id="map-toggle-btn" class="ctrl-btn" onclick="cycleMap()" title="Change Map Type">🛰</div>
         <div class="ctrl-btn" onclick="resetView()" title="Reset View">&#8635;</div>
-        <div id="exit-story-btn" class="ctrl-btn story-exit-btn" onclick="exitStory()" title="Exit Story">×</div>
+        <div class="ctrl-btn story-exit-btn" onclick="exitStory()" title="Exit Story">×</div>
     </div>
 
     <div class="hero">
@@ -323,7 +287,13 @@ HTML_TEMPLATE = """
     </div>
 
     <div id="gallery-window" class="interactive">
-        <div class="gal-header"><div class="gal-close" onclick="closeGallery()">×</div></div>
+        <div class="gal-header" id="gal-header">
+            <span style="font-size:12px; color:#94a3b8; font-weight:bold; letter-spacing:1px;">GALLERY</span>
+            <div class="gal-controls">
+                <div class="gal-btn" onclick="toggleFullscreen()">⤢</div>
+                <div class="gal-btn" onclick="closeGallery()">×</div>
+            </div>
+        </div>
         <div class="gal-content">
             <div class="gal-touch-area" onclick="changeSlide(-1)"></div>
             <div class="gal-touch-area" onclick="changeSlide(1)" style="right:0"></div>
@@ -337,14 +307,11 @@ HTML_TEMPLATE = """
         <div class="scroll-hint" id="scroll-hint"></div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const routes = {{ routes|tojson }};
         const STAGES = {{ stages|tojson }};
         const STORIES = {{ stories|tojson }};
-    </script>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
         const isMobile = window.innerWidth < 768;
         
         var map = L.map('map', { zoomControl: false, attributionControl: false, renderer: L.canvas() }).setView([50, 0], 4);
@@ -365,16 +332,12 @@ HTML_TEMPLATE = """
             layers[currentMapMode].addTo(map);
         }
 
-        // GLOBALS DEFINED AT TOP
-        let galWin = document.getElementById('gallery-window');
-        let activeChart = null, currentRouteData = null, routeLayers = [];
+        let activeChart = null, currentRouteData = null, chartType = 'ele', routeLayers = [];
         let bikeMarker = null, storyChapterMarkers = [], currentStoryPoints = [], routeDistances = [], totalRouteLength = 0;
         let allPoints = [], devLabels = [], storyMarkers = [], isDevMode = false;
         let savedMapState = null, storyChapters = [], userInteracting = false;
         let currStg = 0, currImg = 0;
-        let chartType = 'ele';
 
-        // --- MAP DATA ---
         routes.forEach((route, idx) => {
             allPoints.push(...route.coords);
             const visual = L.polyline(route.coords, { color: '#e63946', weight: 3, opacity: 0 }).addTo(map);
@@ -409,7 +372,7 @@ HTML_TEMPLATE = """
                 isDevMode = !isDevMode; 
                 devLabels.forEach(l => isDevMode ? l.addTo(map) : map.removeLayer(l)); 
             }
-            if(galWin.classList.contains('visible')) {
+            if(document.getElementById('gallery-window').classList.contains('visible')) {
                 if(e.key === 'ArrowLeft') changeSlide(-1);
                 if(e.key === 'ArrowRight') changeSlide(1);
                 if(e.key === 'Escape') closeGallery();
@@ -421,11 +384,7 @@ HTML_TEMPLATE = """
                 let bp = allPoints; if(isMobile) bp = allPoints.slice(0, Math.floor(allPoints.length * 0.2));
                 map.fitBounds(L.polyline(bp).getBounds(), { paddingTopLeft: isMobile ? [20,20] : [window.innerWidth*0.2, 50], paddingBottomRight: [50, 50] });
                 setTimeout(() => { requestAnimationFrame(() => { routeLayers.forEach((l, i) => setTimeout(() => { l.setStyle({opacity:1, color:'#fff', weight:4}); setTimeout(()=>l.setStyle({color:'#e63946', weight:3, opacity: 0.9}), 100); }, i*20)); }); }, 800);
-                
-                routes.forEach((r, i) => {
-                    const mid = r.coords[Math.floor(r.coords.length/2)];
-                    devLabels.push(L.marker(mid, { icon: L.divIcon({ className: 'dev-label', html: i }) }));
-                });
+                routes.forEach((r, i) => { const mid = r.coords[Math.floor(r.coords.length/2)]; devLabels.push(L.marker(mid, { icon: L.divIcon({ className: 'dev-label', html: i }) })); });
             }
         });
 
@@ -435,44 +394,45 @@ HTML_TEMPLATE = """
             else el.classList.remove('map-zoomed-in');
         });
 
-        // --- FUNCTIONS ---
-        function startJourney() { 
-            closeAllModes(); userInteracting = true; shrinkHero();
-            document.body.classList.add('journey-mode'); 
-            document.getElementById('chapter-btn-wrap').style.display = 'none';
-            setupTimeline();
-            document.getElementById('nav-scroll-area').scrollLeft = 0;
-        }
+        // --- GALLERY LOGIC ---
+        const galWin = document.getElementById('gallery-window');
+        const galHead = document.getElementById('gal-header');
+        let isDrag = false, sx, sy, lx, ly;
 
-        function setupTimeline() {
-            const track = document.getElementById('timeline-track');
-            if(track.querySelectorAll('.nav-dot').length === 0) {
-                const minWidth = Math.max(100, STAGES.length * 15); 
-                track.style.minWidth = isMobile ? "200%" : `${minWidth}%`;
-                STAGES.forEach((s, i) => {
-                    const d = document.createElement('div'); d.className = 'nav-dot';
-                    d.style.left = `${(i / (STAGES.length - 1)) * 100}%`;
-                    d.onclick = () => setStage(i);
-                    d.innerHTML = `<div class="dot-label">${s.title}</div>`; 
-                    track.appendChild(d);
-                });
-            }
-        }
+        galHead.addEventListener('mousedown', (e) => {
+            if(galWin.classList.contains('fullscreen')) return;
+            isDrag = true; sx = e.clientX; sy = e.clientY;
+            lx = galWin.offsetLeft; ly = galWin.offsetTop;
+            galWin.classList.add('dragging');
+        });
+        window.addEventListener('mousemove', (e) => {
+            if(!isDrag) return;
+            galWin.style.left = `${lx + (e.clientX - sx)}px`;
+            galWin.style.top = `${ly + (e.clientY - sy)}px`;
+            galWin.style.right = 'auto'; // Disable CSS right positioning
+        });
+        window.addEventListener('mouseup', () => { isDrag = false; galWin.classList.remove('dragging'); });
 
-        function setStage(index) {
-            const s = STAGES[index]; document.getElementById('st-title').innerText = s.title; document.getElementById('st-date').innerText = s.date_range; document.getElementById('st-desc').innerText = s.description; const tc = document.getElementById('st-thumbs'); tc.innerHTML = ''; s.images.forEach((u, i) => tc.innerHTML += `<div class="thumb-wrap" onclick="openLB(${index}, ${i})"><img src="${u}"></div>`); 
-            document.getElementById('timeline-fill').style.width = `${(index / (STAGES.length - 1)) * 100}%`; 
-            document.querySelectorAll('.nav-dot').forEach((d, i) => d.classList.toggle('active', i === index)); 
-            document.getElementById('stage-card').classList.add('visible'); 
-            let pts = []; for(let i=s.start_index; i<=s.end_index; i++) { if(routes[i]) pts.push(...routes[i].coords); } if(pts.length) map.flyToBounds(L.polyline(pts).getBounds(), { padding: [100,100], duration: 2 });
+        function openLB(sIdx, iIdx) { currStg = sIdx; currImg = iIdx; updateGallery(); galWin.classList.add('visible'); userInteracting = true; shrinkHero(); }
+        function closeGallery() { galWin.classList.remove('visible'); document.getElementById('gal-vid').pause(); }
+        function updateGallery() {
+            const url = STAGES[currStg].images[currImg];
+            const isVid = url.match(/\.(mp4|mov)$/i);
+            const v = document.getElementById('gal-vid'), i = document.getElementById('gal-img');
+            if(isVid) { i.style.display='none'; v.style.display='block'; v.src=url; v.play(); } 
+            else { v.pause(); v.style.display='none'; i.style.display='block'; i.src=url; }
         }
+        function changeSlide(dir) { const imgs = STAGES[currStg].images; currImg = (currImg + dir + imgs.length) % imgs.length; updateGallery(); }
+        function toggleFullscreen() { galWin.classList.toggle('fullscreen'); }
+
+        // --- REST OF APP LOGIC ---
+        function setupMath(p) { routeDistances = [0]; totalRouteLength = 0; for(let i=1; i<p.length; i++) { totalRouteLength += map.distance(p[i-1], p[i]); routeDistances.push(totalRouteLength); } }
+        function getPtAtD(d) { for(let i=1; i<routeDistances.length; i++) { if(routeDistances[i] >= d) { const frac = (d - routeDistances[i-1]) / (routeDistances[i] - routeDistances[i-1]); return [currentStoryPoints[i-1][0] + (currentStoryPoints[i][0] - currentStoryPoints[i-1][0]) * frac, currentStoryPoints[i-1][1] + (currentStoryPoints[i][1] - currentStoryPoints[i-1][1]) * frac]; } } return currentStoryPoints[currentStoryPoints.length-1]; }
+        function forwardScroll(e) { document.getElementById('story-scroller').scrollTop += e.deltaY; }
 
         function startStory(s) {
             closeAllModes(); userInteracting = true; shrinkHero();
             document.body.classList.add('story-mode'); 
-            // HIDE STORY BUTTON IN STORY MODE
-            document.getElementById('story-exit-btn').style.display = 'flex';
-            
             savedMapState = { center: map.getCenter(), zoom: map.getZoom() };
             storyChapters = s.chapters || [];
             storyChapterMarkers = [];
@@ -481,39 +441,45 @@ HTML_TEMPLATE = """
             const spacer = document.createElement('div'); spacer.style.height = isMobile ? '1px' : '50vh'; spacer.style.width = isMobile ? '50vw' : '100%'; spacer.style.flexShrink = '0'; sc.appendChild(spacer);
 
             currentStoryPoints = []; s.route_segment_ids.forEach(id => { if(routes[id]) currentStoryPoints.push(...routes[id].coords); });
-            if(currentStoryPoints.length) {
-                setupMath(currentStoryPoints);
-                const pad = isMobile ? [20, 100] : [window.innerWidth * 0.6, 50];
-                map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
-                map.once('moveend', () => {
-                    if(!document.body.classList.contains('story-mode')) return;
-                    bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
-                    setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
-                    s.chapters.forEach((c, i) => {
-                        const pt = getPtAtD(c.progress * s.max_progress * totalRouteLength);
-                        const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
-                        setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
-                    });
-                });
+            
+            // FALLBACK IF NO ROUTES
+            if(currentStoryPoints.length === 0) {
+               map.flyTo(s.location, 10, { duration: 1.5 });
+            } else {
+               setupMath(currentStoryPoints);
+               const pad = isMobile ? [20, 100] : [window.innerWidth * 0.6, 50];
+               map.flyToBounds(L.polyline(currentStoryPoints).getBounds(), { paddingBottomRight: pad, maxZoom: 13, duration: 1.5 });
+               map.once('moveend', () => {
+                   if(!document.body.classList.contains('story-mode')) return;
+                   bikeMarker = L.marker(currentStoryPoints[0], { icon: L.divIcon({ className: 'bike-icon', html: '<div class="bike-inner">🚴</div>', iconSize:[30,30] }), zIndexOffset: 2000 }).addTo(map);
+                   setTimeout(() => bikeMarker._icon.classList.add('visible'), 100);
+                   s.chapters.forEach((c, i) => {
+                       const pt = getPtAtD(c.progress * s.max_progress * totalRouteLength);
+                       const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
+                       setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
+                   });
+               });
             }
             s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<p>${c.text}</p><img src="${c.image}">`; sc.appendChild(d); });
             const trail = document.createElement('div'); trail.style.height = isMobile ? '1px' : '50vh'; trail.style.width = isMobile ? '50vw' : '100%'; trail.style.flexShrink = '0'; sc.appendChild(trail);
             document.getElementById('scroll-hint').style.opacity = '1';
+            
+            // IMMEDIATE RENDER
+            setTimeout(checkStoryScroll, 100);
         }
 
+        let lastScroll = 0;
         function checkStoryScroll() {
             const sc = document.getElementById('story-scroller');
             const cards = document.querySelectorAll('.story-card');
             let totalS = isMobile ? (sc.scrollWidth - window.innerWidth) : (sc.scrollHeight - window.innerHeight);
             let currS = isMobile ? sc.scrollLeft : sc.scrollTop;
             if(totalS <= 0 || cards.length < 2) return;
-            
             if(currS > 10) document.getElementById('scroll-hint').style.opacity = '0';
 
             let firstC = isMobile ? (cards[0].offsetLeft + cards[0].offsetWidth/2) : (cards[0].offsetTop + cards[0].offsetHeight/2);
             let lastC = isMobile ? (cards[cards.length-1].offsetLeft + cards[cards.length-1].offsetWidth/2) : (cards[cards.length-1].offsetTop + cards[cards.length-1].offsetHeight/2);
             let sCenter = isMobile ? (currS + window.innerWidth/2) : (currS + window.innerHeight/2);
-            
             let cardPct = Math.max(0, Math.min(1, (sCenter - firstC) / (lastC - firstC)));
             let floatIdx = cardPct * (cards.length - 1);
             let lowIdx = Math.floor(floatIdx), highIdx = Math.ceil(floatIdx), localPct = floatIdx - lowIdx;
@@ -553,49 +519,13 @@ HTML_TEMPLATE = """
             const ctx = document.getElementById('elChart').getContext('2d');
             if(activeChart) activeChart.destroy();
             const isEle = chartType === 'ele';
-            
-            const dist = parseFloat(currentRouteData.distance);
-            const len = currentRouteData.elevation.length;
-            const labels = Array.from({length: len}, (_, i) => ((i / (len - 1)) * dist).toFixed(1));
-
+            const labels = Array.from({length: currentRouteData.elevation.length}, (_, i) => ((i / (currentRouteData.elevation.length - 1)) * parseFloat(currentRouteData.distance)).toFixed(1));
             activeChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: isEle ? currentRouteData.elevation : currentRouteData.speed,
-                        borderColor: isEle ? '#e63946' : '#457b9d',
-                        backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)',
-                        fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } },
-                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
-                    onClick: (e) => {
-                        const points = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-                        if (points.length) {
-                            const pct = points[0].index / len;
-                            map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14);
-                        }
-                    },
-                    scales: {
-                        x: { display: true, title: { display: true, text: 'Distance (km)', color: '#94a3b8' }, ticks: { color: '#94a3b8', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
-                        y: { display: true, title: { display: true, text: isEle ? 'Elev (m)' : 'Speed (km/h)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#f1f5f9', borderDash: [4, 4] } }
-                    }
-                }
+                data: { labels: labels, datasets: [{ data: isEle ? currentRouteData.elevation : currentRouteData.speed, borderColor: isEle ? '#e63946' : '#457b9d', backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, onClick: (e) => { const pts = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true); if(pts.length) { const pct = pts[0].index / currentRouteData.elevation.length; map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14); } }, scales: { x: { display: true }, y: { display: true } } }
             });
         }
-
-        function openLB(s, i) { currStg = s; currImg = i; updateGallery(); galWin.classList.add('visible'); userInteracting = true; shrinkHero(); }
-        function closeGallery() { galWin.classList.remove('visible'); document.getElementById('gal-vid').pause(); }
-        function updateGallery() { const url = STAGES[currStg].images[currImg]; const isV = url.match(/\.(mp4|mov)$/i); const v = document.getElementById('gal-vid'), i = document.getElementById('gal-img'); if(isV) { i.style.display='none'; v.style.display='block'; v.src=url; v.play(); } else { v.pause(); v.style.display='none'; i.style.display='block'; i.src=url; } }
-        function changeSlide(d) { const imgs = STAGES[currStg].images; currImg = (currImg + d + imgs.length) % imgs.length; updateGallery(); }
-        function toggleMaximize() { galWin.classList.toggle('maximized'); }
-        
-        function setupMath(p) { routeDistances = [0]; totalRouteLength = 0; for(let i=1; i<p.length; i++) { totalRouteLength += map.distance(p[i-1], p[i]); routeDistances.push(totalRouteLength); } }
-        function getPtAtD(d) { for(let i=1; i<routeDistances.length; i++) { if(routeDistances[i] >= d) { const frac = (d - routeDistances[i-1]) / (routeDistances[i] - routeDistances[i-1]); return [currentStoryPoints[i-1][0] + (currentStoryPoints[i][0] - currentStoryPoints[i-1][0]) * frac, currentStoryPoints[i-1][1] + (currentStoryPoints[i][1] - currentStoryPoints[i-1][1]) * frac]; } } return currentStoryPoints[currentStoryPoints.length-1]; }
     </script>
 </body>
 </html>
