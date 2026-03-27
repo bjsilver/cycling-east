@@ -208,11 +208,14 @@ HTML_TEMPLATE = """
         /* STORY MODE */
         #story-overlay { position: fixed; inset: 0; z-index: 2000; display: none; pointer-events: none; }
         body.story-mode #story-overlay { display: block; }
-        #story-scroller { position: absolute; top: 0; right: 0; width: 60%; height: 100%; overflow-y: auto; background: linear-gradient(to right, transparent, rgba(241, 245, 249, 0.98)); scrollbar-width: none; pointer-events: auto; }
-        .story-card { background: white; margin: 0 10% 50vh 10%; padding: 30px; border-radius: 8px; opacity: 0.3; transition: 0.5s; box-shadow: 0 15px 40px -5px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: center; }
-        .story-card.active { opacity: 1; transform: scale(1.02); }
-        .story-card p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem; color: #1d3557; text-align: center; margin-bottom: 20px; order: 1; }
-        .story-card img { width: 100%; height: auto; object-fit: cover; border-radius: 4px; order: 2; }
+        #story-scroller { position: absolute; top: 0; right: 0; width: clamp(430px, 46vw, 760px); height: 100%; overflow-y: auto; background: linear-gradient(to right, rgba(241, 245, 249, 0), rgba(241, 245, 249, 0.95) 14%, rgba(248, 250, 252, 0.99)); scrollbar-width: none; pointer-events: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: 18px; padding: 70px 34px 130px 34px; scroll-snap-type: y proximity; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+        #story-scroller::-webkit-scrollbar { display: none; }
+        .story-card { width: 100%; background: rgba(255, 255, 255, 0.94); border: 1px solid #e2e8f0; border-radius: 12px; padding: 22px; opacity: 0.55; transform: translateY(14px); transition: transform 0.35s ease, opacity 0.35s ease, box-shadow 0.35s ease; box-shadow: 0 14px 34px -20px rgba(15, 23, 42, 0.55); display: flex; flex-direction: column; gap: 14px; scroll-snap-align: center; }
+        .story-card.active { opacity: 1; transform: translateY(0); box-shadow: 0 24px 42px -22px rgba(15, 23, 42, 0.65); }
+        .story-card-title { margin: 0; font-family: 'Playfair Display', serif; font-size: clamp(1.4rem, 1.7vw, 2rem); line-height: 1.15; color: #0f172a; }
+        .story-card-media { width: 100%; height: clamp(300px, 48vh, 620px); border-radius: 10px; background: #0f172a; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .story-card p { font-family: 'Inter', sans-serif; font-style: normal; font-size: clamp(1rem, 1.1vw, 1.1rem); line-height: 1.65; color: #1e293b; text-align: left; margin: 0; }
+        .story-card img { width: 100%; height: 100%; object-fit: contain; object-position: center; border-radius: 10px; display: block; }
         
         .story-exit-btn { display: none; background: white; color: var(--text); border: 2px solid #e2e8f0; }
         body.story-mode .story-exit-btn { display: flex; }
@@ -240,9 +243,12 @@ HTML_TEMPLATE = """
             #stage-card { top: auto; bottom: 100px; left: 10px; right: 10px; width: auto; transform: translateY(150%); } 
             #stage-card.visible { transform: translateY(0); } 
             #detail-panel { left: 10px; right: 10px; width: auto; bottom: 20px; } 
-            #story-scroller { width: 100%; height: 45%; top: auto; bottom: 0; display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.9)); alignItems: center; scroll-snap-type: x mandatory; } 
-            .story-card { flex: 0 0 85vw; margin: 0 10px; height: auto; max-height: 90%; opacity: 0.5; scroll-snap-align: center; margin-bottom: 0; padding: 20px; justify-content: center; } 
-            .story-card.active { opacity: 1; transform: scale(1); } 
+            #story-scroller { width: 100%; height: 62%; top: auto; bottom: 0; padding: 16px 14px 120px 14px; gap: 14px; background: linear-gradient(to top, rgba(241, 245, 249, 1), rgba(241, 245, 249, 0.94)); scroll-snap-type: y proximity; } 
+            .story-card { width: 100%; padding: 16px; opacity: 0.68; transform: translateY(0); } 
+            .story-card.active { opacity: 1; transform: translateY(0); } 
+            .story-card-title { font-size: 1.35rem; } 
+            .story-card-media { height: min(52vw, 380px); } 
+            .story-card p { font-size: 0.98rem; line-height: 1.55; } 
             .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } 
         }
 
@@ -273,10 +279,11 @@ HTML_TEMPLATE = """
         .dev-label { color: #000; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 900; text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff; white-space: nowrap; pointer-events: none; }
         .scroll-hint { position: fixed; bottom: 30px; left: 75%; transform: translateX(-50%); color: #000; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.8); animation: bounce 2s infinite; opacity: 0; transition: opacity 0.5s; z-index: 3000; pointer-events: none; }
         .scroll-hint::after { content: 'SCROLL ↓'; }
-        @media (max-width: 768px) { .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE →'; } }
-        .map-chapter-thumb { width: 40px !important; height: 40px !important; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: 0.3s; }
+        @media (max-width: 768px) { .scroll-hint { bottom: 22%; right: 20px; left: auto; transform: none; } .scroll-hint::after { content: 'SWIPE ↑'; } }
+        .map-chapter-thumb { width: 40px !important; height: 40px !important; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); overflow: hidden; background: white; opacity: 0; transform: translateY(10px); transition: transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease; }
         .map-chapter-thumb img { width: 100% !important; height: 100% !important; object-fit: cover !important; margin: 0 !important; }
         .map-chapter-thumb.visible { opacity: 1; transform: translateY(0); }
+        .map-chapter-thumb.active { transform: translateY(-6px) scale(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }
     </style>
 </head>
 <body id="main-body">
@@ -346,7 +353,7 @@ HTML_TEMPLATE = """
     </div>
 
     <div id="story-overlay">
-        <div class="story-scroller" id="story-scroller" onscroll="checkStoryScroll()"></div>
+        <div class="story-scroller" id="story-scroller" onscroll="onStoryScroll()"></div>
         <div class="scroll-hint" id="scroll-hint"></div>
     </div>
 
@@ -382,6 +389,7 @@ HTML_TEMPLATE = """
         let bikeMarker = null, storyChapterMarkers = [], currentStoryPoints = [], routeDistances = [], totalRouteLength = 0;
         let allPoints = [], devLabels = [], storyMarkers = [], isDevMode = false;
         let savedMapState = null, storyChapters = [], userInteracting = false;
+        let storyScrollTicking = false;
         let currStg = 0, currImg = 0;
 
         // Render Routes
@@ -489,13 +497,21 @@ HTML_TEMPLATE = """
             storyChapterMarkers = [];
             
             const sc = document.getElementById('story-scroller'); sc.innerHTML = ''; sc.scrollTop = 0; sc.scrollLeft = 0;
-            const spacer = document.createElement('div'); spacer.style.height = isMobile ? '1px' : '50vh'; spacer.style.width = isMobile ? '50vw' : '100%'; spacer.style.flexShrink = '0'; sc.appendChild(spacer);
+            const spacer = document.createElement('div'); spacer.style.height = isMobile ? '20vh' : '26vh'; spacer.style.width = '100%'; spacer.style.flexShrink = '0'; sc.appendChild(spacer);
+            const maxP = s.max_progress || 1.0;
+            const chapterProgresses = storyChapters.map(c => Math.max(0, Math.min(1, (c.progress || 0) * maxP)));
 
             if(s.chapters) {
-                s.chapters.forEach(c => { const d = document.createElement('div'); d.className = 'story-card'; d.innerHTML = `<p>${c.text}</p><img src="${c.image}">`; sc.appendChild(d); });
+                s.chapters.forEach((c, i) => {
+                    const d = document.createElement('div');
+                    d.className = 'story-card';
+                    d.dataset.progress = `${chapterProgresses[i] || 0}`;
+                    d.innerHTML = `<h3 class="story-card-title">${s.title}</h3><div class="story-card-media"><img src="${c.image}" loading="lazy" decoding="async" alt="${(s.title || 'Story') + ' chapter ' + (i + 1)}"></div><p>${c.text}</p>`;
+                    sc.appendChild(d);
+                });
             }
             
-            const trail = document.createElement('div'); trail.style.height = isMobile ? '1px' : '50vh'; trail.style.width = isMobile ? '50vw' : '100%'; trail.style.flexShrink = '0'; sc.appendChild(trail);
+            const trail = document.createElement('div'); trail.style.height = isMobile ? '24vh' : '30vh'; trail.style.width = '100%'; trail.style.flexShrink = '0'; sc.appendChild(trail);
             document.getElementById('scroll-hint').style.opacity = '1';
 
             currentStoryPoints = []; 
@@ -508,8 +524,8 @@ HTML_TEMPLATE = """
                 
                 if(s.chapters) {
                     s.chapters.forEach((c, i) => {
-                        let maxP = s.max_progress || 1.0;
-                        const pt = getPtAtD(c.progress * maxP * totalRouteLength);
+                        const progress = chapterProgresses[i] || 0;
+                        const pt = getPtAtD(progress * totalRouteLength);
                         const tm = L.marker(pt, { icon: L.divIcon({ className: 'map-chapter-thumb', html: `<img src="${c.image}">`, iconSize: [30, 30] }) }).addTo(map);
                         setTimeout(() => tm._icon.classList.add('visible'), 500 + (i*200)); storyChapterMarkers.push(tm);
                     });
@@ -520,45 +536,83 @@ HTML_TEMPLATE = """
             } else {
                 map.flyTo(s.location, 10);
             }
-            setTimeout(checkStoryScroll, 100);
+            setTimeout(checkStoryScroll, 120);
+        }
+
+        function onStoryScroll() {
+            if(storyScrollTicking) return;
+            storyScrollTicking = true;
+            requestAnimationFrame(() => {
+                checkStoryScroll();
+                storyScrollTicking = false;
+            });
         }
 
         function checkStoryScroll() {
             const sc = document.getElementById('story-scroller');
-            const cards = document.querySelectorAll('.story-card');
-            let totalS = isMobile ? (sc.scrollWidth - window.innerWidth) : (sc.scrollHeight - window.innerHeight);
-            let currS = isMobile ? sc.scrollLeft : sc.scrollTop;
-            if(totalS <= 0 || cards.length < 2) return;
+            const cards = Array.from(document.querySelectorAll('.story-card'));
+            if(cards.length === 0) return;
+
+            let currS = sc.scrollTop;
             if(currS > 10) document.getElementById('scroll-hint').style.opacity = '0';
 
-            let firstC = isMobile ? (cards[0].offsetLeft + cards[0].offsetWidth/2) : (cards[0].offsetTop + cards[0].offsetHeight/2);
-            let lastC = isMobile ? (cards[cards.length-1].offsetLeft + cards[cards.length-1].offsetWidth/2) : (cards[cards.length-1].offsetTop + cards[cards.length-1].offsetHeight/2);
-            let sCenter = isMobile ? (currS + window.innerWidth/2) : (currS + window.innerHeight/2);
-            let cardPct = Math.max(0, Math.min(1, (sCenter - firstC) / (lastC - firstC)));
-            let floatIdx = cardPct * (cards.length - 1);
-            let lowIdx = Math.floor(floatIdx), highIdx = Math.ceil(floatIdx), localPct = floatIdx - lowIdx;
-            
-            if(storyChapters[lowIdx] && storyChapters[highIdx]) {
-                let currentP = storyChapters[lowIdx].progress + (storyChapters[highIdx].progress - storyChapters[lowIdx].progress) * localPct;
+            const scRect = sc.getBoundingClientRect();
+            const viewportCenter = scRect.top + scRect.height / 2;
+            const centers = cards.map(c => {
+                const box = c.getBoundingClientRect();
+                return box.top + box.height / 2;
+            });
+
+            let lowIdx = 0;
+            let highIdx = 0;
+            let localPct = 0;
+
+            if(viewportCenter <= centers[0]) {
+                lowIdx = 0;
+                highIdx = 0;
+            } else if(viewportCenter >= centers[centers.length - 1]) {
+                lowIdx = centers.length - 1;
+                highIdx = centers.length - 1;
+            } else {
+                for(let i = 0; i < centers.length - 1; i++) {
+                    if(viewportCenter >= centers[i] && viewportCenter <= centers[i + 1]) {
+                        lowIdx = i;
+                        highIdx = i + 1;
+                        const span = Math.max(1, centers[i + 1] - centers[i]);
+                        localPct = (viewportCenter - centers[i]) / span;
+                        break;
+                    }
+                }
+            }
+
+            const lowProgress = parseFloat(cards[lowIdx].dataset.progress || '0');
+            const highProgress = parseFloat(cards[highIdx].dataset.progress || '0');
+            const currentP = lowProgress + (highProgress - lowProgress) * localPct;
+
+            if(totalRouteLength > 0) {
                 if(bikeMarker) {
                     bikeMarker.setLatLng(getPtAtD(currentP * totalRouteLength));
                     const bikePx = map.latLngToContainerPoint(bikeMarker.getLatLng());
                     const w = window.innerWidth, h = window.innerHeight;
-                    let mX = isMobile ? 20 : 50, MX = isMobile ? w-20 : w*0.4-50, mY = 50, MY = isMobile ? h*0.45-50 : h-50;
+                    let mX = isMobile ? 20 : 45, MX = isMobile ? w-20 : w*0.44-45, mY = 45, MY = isMobile ? h*0.38 : h-45;
                     if (bikePx.x < mX || bikePx.x > MX || bikePx.y < mY || bikePx.y > MY) {
-                        map.panBy([bikePx.x - (isMobile ? w/2 : w*0.2), bikePx.y - (isMobile ? h*0.225 : h/2)], {animate: true, duration: 1.0});
+                        map.panBy([bikePx.x - (isMobile ? w/2 : w*0.22), bikePx.y - (isMobile ? h*0.2 : h/2)], {animate: true, duration: 0.9});
                     }
                 }
             }
+
+            const activeIdx = localPct < 0.5 ? lowIdx : highIdx;
             cards.forEach((c, i) => {
-                const box = c.getBoundingClientRect();
-                const center = isMobile ? (box.left + box.width/2) : (box.top + box.height/2);
-                const screenC = isMobile ? (window.innerWidth/2) : (window.innerHeight/2);
-                if(Math.abs(center - screenC) < 150) {
-                    if(!c.classList.contains('active')) { c.classList.add('active'); storyChapterMarkers.forEach((m, idx) => m._icon && (idx === i ? m._icon.classList.add('active') : m._icon.classList.remove('active'))); }
-                } else c.classList.remove('active');
+                c.classList.toggle('active', i === activeIdx);
+                const marker = storyChapterMarkers[i];
+                if(marker && marker._icon) marker._icon.classList.toggle('active', i === activeIdx);
             });
         }
+
+        window.addEventListener('resize', () => {
+            isMobile = window.innerWidth < 768;
+            if(document.body.classList.contains('story-mode')) setTimeout(checkStoryScroll, 120);
+        });
 
         // --- JOURNEY (CHAPTERS) MODE ---
         function startJourney() { 
