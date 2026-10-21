@@ -11,7 +11,27 @@ DATA_FILE = "trip_data.json"
 STAGES_DIR = os.path.join("data", "stages")
 STORIES_DIR = os.path.join("data", "stories")
 IMG_BASE_URL = "https://cdn.jsdelivr.net/gh/bjsilver/cycling-east@master/static/images"
+_DATA_CACHE = {
+    "signature": None,
+    "payload": None,
+}
 # ---------------------
+
+def _compute_data_signature():
+    paths = [DATA_FILE]
+    if os.path.exists(STAGES_DIR):
+        paths.extend(os.path.join(STAGES_DIR, f) for f in os.listdir(STAGES_DIR) if f.endswith('.json'))
+    if os.path.exists(STORIES_DIR):
+        paths.extend(os.path.join(STORIES_DIR, f) for f in os.listdir(STORIES_DIR) if f.endswith('.json'))
+
+    sig = []
+    for p in sorted(paths):
+        try:
+            stat = os.stat(p)
+            sig.append((p, stat.st_mtime_ns, stat.st_size))
+        except FileNotFoundError:
+            continue
+    return tuple(sig)
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000 
@@ -38,6 +58,10 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
 def load_data_final():
+    current_sig = _compute_data_signature()
+    if _DATA_CACHE["signature"] == current_sig and _DATA_CACHE["payload"] is not None:
+        return _DATA_CACHE["payload"]
+
     routes = []
     total_dist = 0
     file_dates = {}
@@ -122,7 +146,10 @@ def load_data_final():
                 except Exception as e:
                     print(f"Error loading story {sf}: {e}")
 
-    return routes, stages, stories, total_dist
+    payload = (routes, stages, stories, total_dist)
+    _DATA_CACHE["signature"] = current_sig
+    _DATA_CACHE["payload"] = payload
+    return payload
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -365,24 +392,69 @@ HTML_TEMPLATE = """
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const isMobile = window.innerWidth < 768;
+        let isMobile = window.innerWidth < 768;
         
-        var map = L.map('map', { zoomControl: false, attributionControl: false, renderer: L.canvas() }).setView([50, 0], 4);
+        var map = L.map('map', { zoomControl: false, attributionControl: false, preferCanvas: true, renderer: L.canvas() }).setView([50, 0], 4);
         const layers = {
-            voyager: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }),
-            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Map data: © OpenStreetMap SRTM | Map style: © OpenTopoMap' })
+            street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors',
+                detectRetina: true
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                detectRetina: true
+            }),
+            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                maxZoom: 17,
+                attribution: 'Map data: © OpenStreetMap SRTM | Map style: © OpenTopoMap',
+                detectRetina: true
+            })
         };
-        layers.voyager.addTo(map);
-        let currentMapMode = 'voyager';
+        layers.street.addTo(map);
+        let currentMapMode = 'street';
+
+        function fallbackToStreetLayer() {
+            if (currentMapMode !== 'street') {
+                map.removeLayer(layers[currentMapMode]);
+                currentMapMode = 'street';
+                layers.street.addTo(map);
+            }
+            document.getElementById('map-toggle-btn').innerHTML = '🛰';
+        }
+
+        ['street', 'satellite', 'topo'].forEach((k) => {
+            layers[k].on('tileerror', () => {
+                if (k === currentMapMode) fallbackToStreetLayer();
+            });
+        });
 
         function cycleMap() {
             map.removeLayer(layers[currentMapMode]);
             const btn = document.getElementById('map-toggle-btn');
-            if (currentMapMode === 'voyager') { currentMapMode = 'satellite'; btn.innerHTML = '⛰️'; }
+            if (currentMapMode === 'street') { currentMapMode = 'satellite'; btn.innerHTML = '⛰️'; }
             else if (currentMapMode === 'satellite') { currentMapMode = 'topo'; btn.innerHTML = '🗺️'; }
-            else { currentMapMode = 'voyager'; btn.innerHTML = '🛰️'; }
+            else { currentMapMode = 'street'; btn.innerHTML = '🛰️'; }
             layers[currentMapMode].addTo(map);
+        }
+
+        function downsampleSeries(values, labels, maxPoints = 500) {
+            if (!Array.isArray(values) || values.length <= maxPoints) {
+                return { values, labels };
+            }
+            const step = Math.ceil(values.length / maxPoints);
+            const sampledValues = [];
+            const sampledLabels = [];
+            for (let i = 0; i < values.length; i += step) {
+                sampledValues.push(values[i]);
+                sampledLabels.push(labels[i]);
+            }
+            const lastIdx = values.length - 1;
+            if (sampledLabels[sampledLabels.length - 1] !== labels[lastIdx]) {
+                sampledValues.push(values[lastIdx]);
+                sampledLabels.push(labels[lastIdx]);
+            }
+            return { values: sampledValues, labels: sampledLabels };
         }
 
         let activeChart = null, currentRouteData = null, chartType = 'ele', routeLayers = [];
@@ -411,7 +483,7 @@ HTML_TEMPLATE = """
         });
 
         function shrinkHero() { if(userInteracting) document.body.classList.add('shrunk'); }
-        ['mousedown', 'touchstart', 'wheel', 'keydown'].forEach(evt => window.addEventListener(evt, () => { userInteracting = true; shrinkHero(); }));
+        ['mousedown', 'touchstart', 'wheel', 'keydown'].forEach(evt => window.addEventListener(evt, () => { userInteracting = true; shrinkHero(); }, { passive: true }));
         map.on('dragstart', () => { userInteracting = true; shrinkHero(); });
 
         // UNIVERSAL CLOSE FUNCTION
@@ -609,10 +681,14 @@ HTML_TEMPLATE = """
             });
         }
 
+        let resizeTimer = null;
         window.addEventListener('resize', () => {
-            isMobile = window.innerWidth < 768;
-            if(document.body.classList.contains('story-mode')) setTimeout(checkStoryScroll, 120);
-        });
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                isMobile = window.innerWidth < 768;
+                if(document.body.classList.contains('story-mode')) setTimeout(checkStoryScroll, 120);
+            }, 120);
+        }, { passive: true });
 
         // --- JOURNEY (CHAPTERS) MODE ---
         function startJourney() { 
@@ -630,11 +706,12 @@ HTML_TEMPLATE = """
         function setupTimeline() {
             const track = document.getElementById('timeline-track');
             if(track.querySelectorAll('.nav-dot').length === 0) {
+                if (STAGES.length === 0) return;
                 const minWidth = Math.max(100, STAGES.length * 15); 
                 track.style.minWidth = isMobile ? "200%" : `${minWidth}%`;
                 STAGES.forEach((s, i) => {
                     const d = document.createElement('div'); d.className = 'nav-dot';
-                    d.style.left = `${(i / (STAGES.length - 1)) * 100}%`;
+                    d.style.left = `${(STAGES.length === 1 ? 50 : (i / (STAGES.length - 1)) * 100)}%`;
                     d.onclick = () => setStage(i);
                     d.innerHTML = `<div class="dot-label">${s.title}</div>`; 
                     track.appendChild(d);
@@ -644,14 +721,28 @@ HTML_TEMPLATE = """
 
         function setStage(index) {
             const s = STAGES[index]; 
+            if (!s) return;
             document.getElementById('st-title').innerText = s.title; 
             document.getElementById('st-date').innerText = s.date_range; 
             document.getElementById('st-desc').innerText = s.description; 
             
-            const tc = document.getElementById('st-thumbs'); tc.innerHTML = ''; 
-            s.images.forEach((u, i) => tc.innerHTML += `<div class="thumb-wrap" onclick="openLB(${index}, ${i})"><img src="${u}"></div>`); 
+            const tc = document.getElementById('st-thumbs');
+            tc.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            s.images.forEach((u, i) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'thumb-wrap';
+                wrap.onclick = () => openLB(index, i);
+                const img = document.createElement('img');
+                img.src = u;
+                img.loading = 'lazy';
+                img.decoding = 'async';
+                wrap.appendChild(img);
+                frag.appendChild(wrap);
+            });
+            tc.appendChild(frag);
             
-            document.getElementById('timeline-fill').style.width = `${(index / (STAGES.length - 1)) * 100}%`; 
+            document.getElementById('timeline-fill').style.width = `${(STAGES.length === 1 ? 100 : (index / (STAGES.length - 1)) * 100)}%`; 
             document.querySelectorAll('.nav-dot').forEach((d, i) => d.classList.toggle('active', i === index)); 
             document.getElementById('stage-card').classList.add('visible'); 
             
@@ -686,16 +777,19 @@ HTML_TEMPLATE = """
             const ctx = document.getElementById('elChart').getContext('2d');
             if(activeChart) activeChart.destroy();
             const isEle = chartType === 'ele';
-            const dist = parseFloat(currentRouteData.distance);
-            const len = currentRouteData.elevation.length;
+            const dist = parseFloat(currentRouteData.distance) || 0;
+            const sourceData = isEle ? (currentRouteData.elevation || []) : (currentRouteData.speed || []);
+            const len = sourceData.length;
+            if (len < 2) return;
             const labels = Array.from({length: len}, (_, i) => ((i / (len - 1)) * dist).toFixed(1));
+            const sampled = downsampleSeries(sourceData, labels, 500);
 
             activeChart = new Chart(ctx, {
                 type: 'line',
                 data: { 
-                    labels: labels, 
+                    labels: sampled.labels, 
                     datasets: [{ 
-                        data: isEle ? currentRouteData.elevation : currentRouteData.speed, 
+                        data: sampled.values, 
                         borderColor: isEle ? '#e63946' : '#457b9d', 
                         backgroundColor: isEle ? 'rgba(230, 57, 70, 0.1)' : 'rgba(69, 123, 157, 0.1)', 
                         fill: true, pointRadius: 0, borderWidth: 2, tension: 0.2 
@@ -707,7 +801,8 @@ HTML_TEMPLATE = """
                     onClick: (e) => { 
                         const pts = activeChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true); 
                         if(pts.length) { 
-                            const pct = pts[0].index / len; 
+                            const sampledLen = Math.max(1, sampled.values.length - 1);
+                            const pct = pts[0].index / sampledLen; 
                             map.flyTo(currentRouteData.coords[Math.floor(pct * currentRouteData.coords.length)], 14); 
                         } 
                     }, 
